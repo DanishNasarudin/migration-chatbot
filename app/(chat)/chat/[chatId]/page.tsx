@@ -1,4 +1,5 @@
 import Chat from "@/components/custom/chat";
+import { mockChatMessages } from "@/lib/mock";
 import { DEFAULT_CHAT_MODEL } from "@/lib/models";
 import { cookies } from "next/headers";
 
@@ -16,7 +17,7 @@ export default async function Page({
     return (
       <Chat
         id={chatId}
-        initialMessages={[]}
+        initialMessages={mockChatMessages.filter((i) => i.role !== "system")}
         selectedChatModel={DEFAULT_CHAT_MODEL}
       />
     );

@@ -8,6 +8,7 @@ import { DefaultChatTransport } from "ai";
 import { useState } from "react";
 import { toast } from "sonner";
 import { unstable_serialize, useSWRConfig } from "swr";
+import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
 
 export default function Chat({
@@ -73,7 +74,15 @@ export default function Chat({
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
 
   return (
-    <div>
+    <>
+      <Messages
+        chatId={id}
+        status={status}
+        messages={messages}
+        setMessages={setMessages}
+        regenerate={regenerate}
+        selectedModelId={selectedChatModel}
+      />
       <form
         className={cn(
           "sticky bg-background bottom-0 mx-auto px-4 pb-8 pt-4 gap-2 w-full md:max-w-3xl"
@@ -94,6 +103,6 @@ export default function Chat({
           className="bg-background!"
         />
       </form>
-    </div>
+    </>
   );
 }
