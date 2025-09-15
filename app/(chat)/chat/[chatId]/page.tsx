@@ -1,8 +1,32 @@
+import Chat from "@/components/custom/chat";
+import { DEFAULT_CHAT_MODEL } from "@/lib/models";
+import { cookies } from "next/headers";
+
 export default async function Page({
   params,
 }: {
   params: Promise<{ chatId: string }>;
 }) {
   const { chatId } = await params;
-  return <div>{chatId}</div>;
+
+  const cookieStore = await cookies();
+  const chatModelFromCookie = cookieStore.get("chat-model");
+
+  if (!chatModelFromCookie) {
+    return (
+      <Chat
+        id={chatId}
+        initialMessages={[]}
+        selectedChatModel={DEFAULT_CHAT_MODEL}
+      />
+    );
+  }
+
+  return (
+    <Chat
+      id={chatId}
+      initialMessages={[]}
+      selectedChatModel={chatModelFromCookie.value}
+    />
+  );
 }

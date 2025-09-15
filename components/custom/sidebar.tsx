@@ -1,5 +1,5 @@
 "use client";
-import { useScrollRef } from "@/lib/hooks/useScrollRef";
+import { useScrollRef } from "@/lib/hooks/use-scroll-ref";
 import { chatsMock } from "@/lib/mock";
 import { Book, PanelLeftClose, SquarePen } from "lucide-react";
 import { motion } from "motion/react";

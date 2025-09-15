@@ -20,22 +20,77 @@ model Chat {
   userId String @db.Char(36)
 
   messages Message[]
+  files    ChatFile[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Message {
-  id      String @id @default(uuid()) @db.Char(36)
-  chatId  String @db.Char(36)
-  role    String
-  content Json
-  parts   Json?
+  id     String @id @default(uuid()) @db.Char(36)
+  chatId String @db.Char(36)
+  role   String
+  parts  Json
 
-  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chat  Chat          @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  files MessageFile[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([chatId], map: "Message_chatId_index")
+}
+
+model DatasetFile {
+  id             String @id @default(cuid())
+  filename       String
+  extension      String
+  mimeType       String
+  sizeBytes      Int
+  checksumSha256 String @db.VarChar(64)
+  data           Bytes  @db.ByteA
+
+  messageLinks MessageFile[]
+  chatLinks    ChatFile[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([checksumSha256])
+  @@index([mimeType])
+}
+
+model MessageFile {
+  id            String      @id @default(cuid())
+  messageId     String
+  datasetFileId String
+  message       Message     @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  datasetFile   DatasetFile @relation(fields: [datasetFileId], references: [id], onDelete: Cascade)
+
+  // optional “label” per usage, e.g. "newFile"
+  label     String?
+  purpose   FilePurpose @default(input) // input|output|other
+  createdAt DateTime    @default(now())
+
+  @@index([messageId])
+  @@index([datasetFileId])
+}
+
+enum FilePurpose {
+  input
+  output
+  other
+}
+
+model ChatFile {
+  chatId        String
+  datasetFileId String
+  chat          Chat        @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  datasetFile   DatasetFile @relation(fields: [datasetFileId], references: [id], onDelete: Cascade)
+
+  // optional label for long-lived context (e.g., "previousFile", "schema")
+  label String?
+
+  @@id([chatId, datasetFileId])
+  @@index([datasetFileId])
 }
