@@ -1,5 +1,5 @@
+import { myProvider } from "@/lib/ai/models";
 import { useScrollToBottom } from "@/lib/hooks/use-scroll-to-bottom";
-import { myProvider } from "@/lib/models";
 import { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import type { UIMessage, UseChatHelpers } from "@ai-sdk/react";

@@ -98,3 +98,13 @@ export const chatModels: Array<ChatModel> = [
     description: "Large model for complex task",
   },
 ];
+
+export const CHAT_MODEL_IDS = [
+  "small-model",
+  "qwen2.5:14b",
+  "qwen2.5:32b",
+  "llama3.3:latest",
+  "qwen3:8b",
+] as const;
+
+export type ChatModelId = (typeof CHAT_MODEL_IDS)[number];

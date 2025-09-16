@@ -2,6 +2,7 @@
 
 import { ChatSDKError } from "@/lib/errors";
 import prisma from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 
 export async function getChatsByUserId({ userId }: { userId: string }) {
   try {
@@ -53,6 +54,8 @@ export async function saveChat({
         title,
       },
     });
+
+    revalidatePath("/app");
 
     return result;
   } catch (error) {

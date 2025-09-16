@@ -1,5 +1,5 @@
 import Chat from "@/components/custom/chat";
-import { DEFAULT_CHAT_MODEL } from "@/lib/models";
+import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { getChatById } from "@/services/chat";
 import { getMessagesByChatId } from "@/services/message";

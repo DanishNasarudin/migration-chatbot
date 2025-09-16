@@ -1,10 +1,13 @@
+import { ChatModel, myProvider } from "@/lib/ai/models";
+import { regularPrompt } from "@/lib/ai/prompts";
+import { getChatFiles } from "@/lib/ai/tools/get-chat-files";
+import { getMessageFile } from "@/lib/ai/tools/get-message-file";
 import { isProductionEnvironment } from "@/lib/constants";
 import { ChatSDKError } from "@/lib/errors";
 import { Prisma } from "@/lib/generated/prisma";
-import { ChatModel, myProvider } from "@/lib/models";
 import { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
-import { generateTitleFromUserMessage } from "@/services/ai";
+import { buildFileNudge, generateTitleFromUserMessage } from "@/services/ai";
 import { deleteChatById, getChatById, saveChat } from "@/services/chat";
 import { getMessagesByChatId, saveMessages } from "@/services/message";
 import {
@@ -64,7 +67,13 @@ export async function POST(request: NextRequest) {
     }
 
     const messagesFromDb = await getMessagesByChatId({ id });
-    const uiMessages = [...convertToUIMessages(messagesFromDb), message];
+    const fileNudge = await buildFileNudge(id, message.id);
+
+    const uiMessages: ChatMessage[] = [
+      ...convertToUIMessages(messagesFromDb),
+      ...(fileNudge ? [fileNudge] : []),
+      message,
+    ];
 
     await saveMessages({
       messages: [
@@ -81,28 +90,18 @@ export async function POST(request: NextRequest) {
       execute: ({ writer: dataStream }) => {
         const result = streamText({
           model: myProvider.languageModel(selectedChatModel),
-          //   system: systemPrompt({ selectedChatModel, requestHints }),
+          system: regularPrompt,
           messages: convertToModelMessages(uiMessages),
           stopWhen: stepCountIs(5),
-          //   experimental_activeTools:
-          //     selectedChatModel === "chat-model-reasoning"
-          //       ? []
-          //       : [
-          //           "getWeather",
-          //           "createDocument",
-          //           "updateDocument",
-          //           "requestSuggestions",
-          //         ],
+          experimental_activeTools:
+            selectedChatModel === "chat-model-reasoning"
+              ? []
+              : ["getChatFiles", "getMessageFile"],
           experimental_transform: smoothStream({ chunking: "word" }),
-          //   tools: {
-          //     getWeather,
-          //     createDocument: createDocument({ session, dataStream }),
-          //     updateDocument: updateDocument({ session, dataStream }),
-          //     requestSuggestions: requestSuggestions({
-          //       session,
-          //       dataStream,
-          //     }),
-          //   },
+          tools: {
+            getChatFiles,
+            getMessageFile,
+          },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
             functionId: "stream-text",

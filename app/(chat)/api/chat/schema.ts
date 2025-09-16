@@ -1,3 +1,4 @@
+import { CHAT_MODEL_IDS } from "@/lib/ai/models";
 import { z } from "zod/v3";
 
 const textPartSchema = z.object({
@@ -7,7 +8,17 @@ const textPartSchema = z.object({
 
 const filePartSchema = z.object({
   type: z.enum(["file"]),
-  mediaType: z.enum(["image/jpeg", "image/png"]),
+  mediaType: z.enum([
+    "text/plain",
+    "text/csv",
+    "application/csv",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/json",
+    "application/xml",
+    "application/x-parquet",
+    "application/octet-stream",
+  ]),
   name: z.string().min(1).max(100),
   url: z.string().url(),
 });
@@ -21,7 +32,7 @@ export const postRequestBodySchema = z.object({
     role: z.enum(["user"]),
     parts: z.array(partSchema),
   }),
-  selectedChatModel: z.enum(["qwen2.5:7b"]),
+  selectedChatModel: z.enum(CHAT_MODEL_IDS),
   userId: z.string().uuid(),
 });
 

@@ -11,7 +11,7 @@ export async function GET(
   const chat = await getChatById({ id: chatId });
 
   if (!chat) {
-    return Response.json({ error: "Not found" }, { status: 404 });
+    return Response.json({ id: "untitled", name: "untitled" });
   }
   return Response.json({ id: chat?.id, name: chat.title });
 }

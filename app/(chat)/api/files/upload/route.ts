@@ -20,7 +20,7 @@ const ALLOWED_EXTS = new Set([
   ".xml",
   ".parquet",
 ]);
-const ALLOWED_MIME_EXACT = new Set([
+export const ALLOWED_MIME_EXACT = new Set([
   "text/plain",
   "text/csv",
   "application/csv",
