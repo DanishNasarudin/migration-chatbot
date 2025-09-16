@@ -5,10 +5,10 @@ export const runtime = "nodejs";
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const item = await prisma.datasetFile.findUnique({
-    where: { id: params.id },
+    where: { id: (await params).id },
     select: { filename: true, mimeType: true, data: true },
   });
 

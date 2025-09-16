@@ -72,6 +72,7 @@ model MessageFile {
   purpose   FilePurpose @default(input) // input|output|other
   createdAt DateTime    @default(now())
 
+  @@unique([messageId, datasetFileId], name: "messageId_fileId")
   @@index([messageId])
   @@index([datasetFileId])
 }
@@ -92,5 +93,6 @@ model ChatFile {
   label String?
 
   @@id([chatId, datasetFileId])
+  @@unique([chatId, datasetFileId], name: "chatId_fileId")
   @@index([datasetFileId])
 }

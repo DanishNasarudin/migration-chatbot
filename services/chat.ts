@@ -55,7 +55,7 @@ export async function saveChat({
       },
     });
 
-    revalidatePath("/app");
+    revalidatePath("/chat");
 
     return result;
   } catch (error) {

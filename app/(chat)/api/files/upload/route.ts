@@ -20,7 +20,7 @@ const ALLOWED_EXTS = new Set([
   ".xml",
   ".parquet",
 ]);
-export const ALLOWED_MIME_EXACT = new Set([
+const ALLOWED_MIME_EXACT = new Set([
   "text/plain",
   "text/csv",
   "application/csv",
@@ -105,7 +105,13 @@ export async function POST(req: Request) {
   });
   if (existing) {
     return NextResponse.json(
-      { id: existing.id, deduped: true, filename: file.name },
+      {
+        url: `${process.env.HOSTNAME}/api/files/${existing.id}`,
+        deduped: true,
+        pathname: file.name,
+        contentType: file.type,
+        id: existing.id,
+      },
       { status: 200 }
     );
   }
@@ -124,7 +130,12 @@ export async function POST(req: Request) {
   });
 
   return NextResponse.json(
-    { id: created.id, filename: created.filename },
+    {
+      url: `${process.env.HOSTNAME}/api/files/${created.id}`,
+      pathname: created.filename,
+      contentType: file.type,
+      id: created.id,
+    },
     { status: 201 }
   );
 }

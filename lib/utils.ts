@@ -58,7 +58,13 @@ export function convertToUIMessages(messages: Message[]): ChatMessage[] {
   return messages.map((message) => ({
     id: message.id,
     role: message.role as "user" | "assistant" | "system",
-    parts: message.parts as UIMessagePart<CustomUIDataTypes, ChatTools>[],
+    parts: (
+      message.parts as UIMessagePart<CustomUIDataTypes, ChatTools>[]
+    ).filter((p) => {
+      if (p.type !== "file") {
+        return p;
+      }
+    }),
     metadata: {
       createdAt: formatISO(message.createdAt),
     },

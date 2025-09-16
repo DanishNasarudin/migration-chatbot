@@ -2,12 +2,12 @@ import { CHAT_MODEL_IDS } from "@/lib/ai/models";
 import { z } from "zod/v3";
 
 const textPartSchema = z.object({
-  type: z.enum(["text"]),
+  type: z.literal("text"),
   text: z.string().min(1).max(2000),
 });
 
 const filePartSchema = z.object({
-  type: z.enum(["file"]),
+  type: z.literal("file"),
   mediaType: z.enum([
     "text/plain",
     "text/csv",

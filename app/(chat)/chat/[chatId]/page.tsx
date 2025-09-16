@@ -4,7 +4,7 @@ import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { getChatById } from "@/services/chat";
 import { getMessagesByChatId } from "@/services/message";
 import { cookies } from "next/headers";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 
 export default async function Page({
   params,
@@ -15,7 +15,7 @@ export default async function Page({
   const chat = await getChatById({ id: chatId });
 
   if (!chat) {
-    notFound();
+    redirect("/chat");
   }
 
   const messagesFromDb = await getMessagesByChatId({

@@ -6,12 +6,15 @@ import type { UIMessage, UseChatHelpers } from "@ai-sdk/react";
 import { ChatStatus, LanguageModelUsage } from "ai";
 import equal from "fast-deep-equal";
 import {
+  ArrowDown,
   ArrowUpIcon,
   Loader2Icon,
+  PaperclipIcon,
   SquareIcon,
   StopCircleIcon,
   XIcon,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   ChangeEvent,
   Dispatch,
@@ -122,11 +125,11 @@ function PureMultimodalInput({
         ...attachments.map((attachment) => ({
           type: "file" as const,
           url: attachment.url,
-          name: attachment.name,
+          name: attachment.id,
           mediaType: attachment.contentType,
         })),
         {
-          type: "text",
+          type: "text" as const,
           text: input,
         },
       ],
@@ -163,12 +166,13 @@ function PureMultimodalInput({
 
       if (response.ok) {
         const data = await response.json();
-        const { url, pathname, contentType } = data;
+        const { url, pathname, contentType, id } = data;
 
         return {
           url,
           name: pathname,
           contentType: contentType,
+          id,
         };
       }
       const { error } = await response.json();
@@ -218,6 +222,30 @@ function PureMultimodalInput({
 
   return (
     <div className="flex relative flex-col gap-4 w-full">
+      <AnimatePresence>
+        {!isAtBottom && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className="absolute -top-12 left-1/2 z-50 -translate-x-1/2"
+          >
+            <Button
+              data-testid="scroll-to-bottom-button"
+              className="rounded-full"
+              size="icon"
+              variant="outline"
+              onClick={(event) => {
+                event.preventDefault();
+                scrollToBottom();
+              }}
+            >
+              <ArrowDown />
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <input
         type="file"
         className="fixed -top-4 -left-4 size-0.5 opacity-0 pointer-events-none"
@@ -248,9 +276,13 @@ function PureMultimodalInput({
           }
         }}
       />
-      {/* <div className="absolute bottom-0 p-2 w-fit flex flex-row justify-start">
-        <AttachmentsButton fileInputRef={fileInputRef} isLoading={isLoading} />
-      </div> */}
+      <div className="absolute bottom-0 p-2 w-fit flex flex-row justify-start">
+        <AttachmentsButton
+          fileInputRef={fileInputRef}
+          status={status}
+          selectedModelId={selectedModelId}
+        />
+      </div>
       <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end">
         {status === "submitted" ? (
           <StopButton stop={stop} setMessages={setMessages} />
@@ -344,3 +376,32 @@ const SendButton = memo(PureSendButton, (prevProps, nextProps) => {
   if (prevProps.input !== nextProps.input) return false;
   return true;
 });
+
+function PureAttachmentsButton({
+  fileInputRef,
+  status,
+  selectedModelId,
+}: {
+  fileInputRef: React.MutableRefObject<HTMLInputElement | null>;
+  status: UseChatHelpers<ChatMessage>["status"];
+  selectedModelId: string;
+}) {
+  const isReasoningModel = selectedModelId === "chat-model-reasoning";
+
+  return (
+    <Button
+      data-testid="attachments-button"
+      className="p-1 h-8 rounded-lg transition-colors aspect-square hover:bg-accent"
+      onClick={(event) => {
+        event.preventDefault();
+        fileInputRef.current?.click();
+      }}
+      disabled={status !== "ready" || isReasoningModel}
+      variant="ghost"
+    >
+      <PaperclipIcon size={14} style={{ width: 14, height: 14 }} />
+    </Button>
+  );
+}
+
+const AttachmentsButton = memo(PureAttachmentsButton);

@@ -81,3 +81,34 @@ export async function buildFileNudge(chatId: string, latestMessageId: string) {
 
   return nudge;
 }
+
+export async function linkFilesToMessageAndChat(params: {
+  chatId: string;
+  messageId: string;
+  fileIds: string[];
+}) {
+  const { chatId, messageId, fileIds } = params;
+  if (!fileIds.length) return;
+
+  // Only link files that actually exist
+  const existing = await prisma.datasetFile.findMany({
+    where: { id: { in: fileIds } },
+    select: { id: true },
+  });
+  if (!existing.length) return;
+
+  await Promise.all(
+    existing.flatMap((f) => [
+      prisma.chatFile.upsert({
+        where: { chatId_fileId: { chatId, datasetFileId: f.id } },
+        create: { chatId, datasetFileId: f.id },
+        update: {},
+      }),
+      prisma.messageFile.upsert({
+        where: { messageId_fileId: { messageId, datasetFileId: f.id } },
+        create: { messageId, datasetFileId: f.id },
+        update: {},
+      }),
+    ])
+  );
+}

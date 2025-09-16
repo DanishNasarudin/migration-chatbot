@@ -7,7 +7,11 @@ import { ChatSDKError } from "@/lib/errors";
 import { Prisma } from "@/lib/generated/prisma";
 import { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
-import { buildFileNudge, generateTitleFromUserMessage } from "@/services/ai";
+import {
+  buildFileNudge,
+  generateTitleFromUserMessage,
+  linkFilesToMessageAndChat,
+} from "@/services/ai";
 import { deleteChatById, getChatById, saveChat } from "@/services/chat";
 import { getMessagesByChatId, saveMessages } from "@/services/message";
 import {
@@ -27,7 +31,8 @@ export async function POST(request: NextRequest) {
   try {
     const json = await request.json();
     requestBody = postRequestBodySchema.parse(json);
-  } catch (_) {
+  } catch (error) {
+    console.log(`Zod Error: ${error}`);
     return new ChatSDKError("bad_request:api").toResponse();
   }
 
@@ -69,11 +74,15 @@ export async function POST(request: NextRequest) {
     const messagesFromDb = await getMessagesByChatId({ id });
     const fileNudge = await buildFileNudge(id, message.id);
 
-    const uiMessages: ChatMessage[] = [
-      ...convertToUIMessages(messagesFromDb),
-      ...(fileNudge ? [fileNudge] : []),
-      message,
-    ];
+    const makeFileRef = (a: any) =>
+      [
+        "[[FILE_REFERENCE]]",
+        `contentType: ${a.mediaType}`,
+        `chatId: ${id}`,
+        `fileId: ${a.name}`,
+        `messageId: ${message.id}`,
+        "[[/FILE_REFERENCE]]",
+      ].join("\n\n");
 
     await saveMessages({
       messages: [
@@ -85,6 +94,34 @@ export async function POST(request: NextRequest) {
         },
       ],
     });
+
+    let fileIds: string[] = [];
+    const messageNew: ChatMessage = {
+      ...message,
+      parts: message.parts.map((p) => {
+        if (p.type === "file") {
+          fileIds.push((p as any).name);
+          return {
+            type: "text",
+            text: makeFileRef(p),
+          };
+        }
+        return p;
+      }),
+    };
+
+    if (fileIds.length > 0)
+      await linkFilesToMessageAndChat({
+        chatId: id,
+        messageId: message.id,
+        fileIds,
+      });
+
+    const uiMessages: ChatMessage[] = [
+      ...convertToUIMessages(messagesFromDb),
+      ...(fileNudge ? [fileNudge] : []),
+      messageNew,
+    ];
 
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
@@ -138,6 +175,7 @@ export async function POST(request: NextRequest) {
     return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
   } catch (error) {
     if (error instanceof ChatSDKError) {
+      console.error("Chat error:", error);
       return error.toResponse();
     }
 
