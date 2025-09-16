@@ -26,8 +26,6 @@ export default function Headerbar() {
     fetcher
   );
 
-  console.log(chatId);
-
   return (
     <div className="flex justify-between p-2 h-topbar items-center border-b border-border">
       <div className={cn("flex items-center", !open && "gap-1")}>

@@ -1,5 +1,6 @@
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "./providers/theme-provider";
+import { UserIdCookieProvider } from "./providers/user-id-provider";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -9,8 +10,10 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       enableSystem
       disableTransitionOnChange
     >
-      {children}
-      <Toaster richColors closeButton />
+      <UserIdCookieProvider>
+        {children}
+        <Toaster richColors closeButton />
+      </UserIdCookieProvider>
     </ThemeProvider>
   );
 }

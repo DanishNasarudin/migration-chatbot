@@ -1,7 +1,10 @@
 import Chat from "@/components/custom/chat";
-import { mockChatMessages } from "@/lib/mock";
 import { DEFAULT_CHAT_MODEL } from "@/lib/models";
+import { convertToUIMessages, generateUUID } from "@/lib/utils";
+import { getChatById } from "@/services/chat";
+import { getMessagesByChatId } from "@/services/message";
 import { cookies } from "next/headers";
+import { notFound } from "next/navigation";
 
 export default async function Page({
   params,
@@ -9,16 +12,29 @@ export default async function Page({
   params: Promise<{ chatId: string }>;
 }) {
   const { chatId } = await params;
+  const chat = await getChatById({ id: chatId });
+
+  if (!chat) {
+    notFound();
+  }
+
+  const messagesFromDb = await getMessagesByChatId({
+    id: chatId,
+  });
+
+  const uiMessages = convertToUIMessages(messagesFromDb);
 
   const cookieStore = await cookies();
   const chatModelFromCookie = cookieStore.get("chat-model");
+  const userId = cookieStore.get("app_uid")?.value ?? generateUUID();
 
   if (!chatModelFromCookie) {
     return (
       <Chat
         id={chatId}
-        initialMessages={mockChatMessages.filter((i) => i.role !== "system")}
+        initialMessages={uiMessages}
         selectedChatModel={DEFAULT_CHAT_MODEL}
+        userId={userId}
       />
     );
   }
@@ -26,8 +42,9 @@ export default async function Page({
   return (
     <Chat
       id={chatId}
-      initialMessages={[]}
+      initialMessages={uiMessages}
       selectedChatModel={chatModelFromCookie.value}
+      userId={userId}
     />
   );
 }

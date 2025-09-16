@@ -15,12 +15,14 @@ export default function Chat({
   id,
   initialMessages,
   selectedChatModel,
+  userId,
 }: //   isReadonly,
 //   autoResume,
 {
   id: string;
   initialMessages: ChatMessage[];
   selectedChatModel: string;
+  userId: string;
   //   isReadonly: boolean;
   //   autoResume: boolean;
 }) {
@@ -51,6 +53,7 @@ export default function Chat({
             id,
             message: messages.at(-1),
             selectedChatModel,
+            userId,
             ...body,
           },
         };
@@ -64,7 +67,6 @@ export default function Chat({
     },
     onError: (error) => {
       if (error instanceof ChatSDKError) {
-        // Check if it's a credit card error
         toast.error(error.message);
         console.log(`Error occured: ${error.message}`);
       }
@@ -85,7 +87,7 @@ export default function Chat({
       />
       <form
         className={cn(
-          "sticky bg-background bottom-0 mx-auto px-4 pb-8 pt-4 gap-2 w-full md:max-w-3xl"
+          "sticky bg-background bottom-0 mx-auto p-4 gap-2 w-full md:max-w-3xl"
         )}
       >
         <MultimodalInput

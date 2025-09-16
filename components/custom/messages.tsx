@@ -55,7 +55,7 @@ function PureMessages({
   return (
     <div
       ref={messagesContainerRef}
-      className="w-full h-full mx-auto gap-2 overflow-y-auto relative"
+      className="w-full h-full mx-auto gap-2 overflow-y-auto"
       style={{ overflowAnchor: "none" }}
     >
       <Conversation className="mx-auto flex min-w-0 max-w-4xl flex-col gap-4 md:gap-6">

@@ -1,6 +1,10 @@
+import { UIMessagePart } from "ai";
 import { clsx, type ClassValue } from "clsx";
+import { formatISO } from "date-fns";
 import { twMerge } from "tailwind-merge";
 import { ChatSDKError, ErrorCode } from "./errors";
+import { Message } from "./generated/prisma";
+import { ChatMessage, ChatTools, CustomUIDataTypes } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -48,4 +52,15 @@ export async function fetchWithErrorHandlers(
 
 export function sanitizeText(text: string) {
   return text.replace("<has_function_call>", "");
+}
+
+export function convertToUIMessages(messages: Message[]): ChatMessage[] {
+  return messages.map((message) => ({
+    id: message.id,
+    role: message.role as "user" | "assistant" | "system",
+    parts: message.parts as UIMessagePart<CustomUIDataTypes, ChatTools>[],
+    metadata: {
+      createdAt: formatISO(message.createdAt),
+    },
+  }));
 }

@@ -31,8 +31,8 @@ export const myProvider = customProvider({
     "qwen2.5:14b": ollama("qwen2.5:14b"), // 9gb
     "qwen2.5:32b": ollama("qwen2.5:32b"), // 19gb
     "qwen2.5:72b": ollama("qwen2.5:72b"),
-    "small-model": ollama("llama3.2"),
-    "llama3.2-object": ollama("llama3.2"),
+    "small-model": ollama("llama3.2:latest"),
+    "llama3.2-object": ollama("llama3.2:latest"),
     openhermes: ollama("openhermes"),
     "openhermes-object": ollama("openhermes"),
     "gemma3:4b": ollama("gemma3:4b"), // 3.3gb
@@ -45,7 +45,7 @@ export const myProvider = customProvider({
   },
 });
 
-interface ChatModel {
+export interface ChatModel {
   id: string;
   name: string;
   description: string;
