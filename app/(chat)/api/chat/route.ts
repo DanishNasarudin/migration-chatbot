@@ -1,4 +1,4 @@
-import { ChatModel, myProvider } from "@/lib/ai/models";
+import { ChatModel, MODEL_REGISTRY, myProvider } from "@/lib/ai/models";
 import { regularPrompt } from "@/lib/ai/prompts";
 import { getChatFiles } from "@/lib/ai/tools/get-chat-files";
 import { getMessageFile } from "@/lib/ai/tools/get-message-file";
@@ -9,6 +9,7 @@ import { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import {
   buildFileNudge,
+  buildInlineFileNudge,
   generateTitleFromUserMessage,
   linkFilesToMessageAndChat,
 } from "@/services/ai";
@@ -71,6 +72,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const haveTools = MODEL_REGISTRY.some(
+      (m) => m.id === selectedChatModel && m.tools
+    );
     const messagesFromDb = await getMessagesByChatId({ id });
     const fileNudge = await buildFileNudge(id, message.id);
 
@@ -117,11 +121,17 @@ export async function POST(request: NextRequest) {
         fileIds,
       });
 
+    const nudge = await buildInlineFileNudge(id, message.id, {
+      totalCharBudget: 16_000,
+    });
+
     const uiMessages: ChatMessage[] = [
       ...convertToUIMessages(messagesFromDb),
-      ...(fileNudge ? [fileNudge] : []),
+      ...(!haveTools && nudge ? [nudge] : fileNudge ? [fileNudge] : []),
       messageNew,
     ];
+
+    console.log("Feed_AI: ", uiMessages, haveTools);
 
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
@@ -130,10 +140,10 @@ export async function POST(request: NextRequest) {
           system: regularPrompt,
           messages: convertToModelMessages(uiMessages),
           stopWhen: stepCountIs(5),
-          experimental_activeTools:
-            selectedChatModel === "chat-model-reasoning"
-              ? []
-              : ["getChatFiles", "getMessageFile"],
+          experimental_activeTools: !haveTools
+            ? []
+            : ["getChatFiles", "getMessageFile"],
+          // experimental_activeTools: ["getChatFiles", "getMessageFile"],
           experimental_transform: smoothStream({ chunking: "word" }),
           tools: {
             getChatFiles,

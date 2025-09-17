@@ -45,7 +45,6 @@ export const getMessageFile = tool({
         data: true,
       },
     });
-    console.log(file, "EXIST?");
     if (!file) throw new Error("file not found or not accessible to this chat");
 
     // Access is allowed if attached to this message OR to this chat OR same owner

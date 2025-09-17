@@ -25,7 +25,8 @@ export default async function Page({
   const uiMessages = convertToUIMessages(messagesFromDb);
 
   const cookieStore = await cookies();
-  const chatModelFromCookie = cookieStore.get("chat-model");
+  const chatModelFromCookie =
+    cookieStore.get("chat-model")?.value ?? "qwen3:8b";
   const userId = cookieStore.get("app_uid")?.value ?? generateUUID();
 
   if (!chatModelFromCookie) {
@@ -43,7 +44,7 @@ export default async function Page({
     <Chat
       id={chatId}
       initialMessages={uiMessages}
-      selectedChatModel={chatModelFromCookie.value}
+      selectedChatModel={chatModelFromCookie}
       userId={userId}
     />
   );

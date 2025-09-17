@@ -18,9 +18,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import { ModelSelector } from "./model-selector";
 import TooltipWrapper from "./tooltip-wrapper";
 
-export default function Headerbar() {
+export default function Headerbar({
+  selectedChatModel,
+}: {
+  selectedChatModel: string;
+}) {
   const [open, setOpen] = useLocalStorage<boolean>("ui.sidebarOpen", false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -79,6 +84,10 @@ export default function Headerbar() {
             <div className="min-h-full w-[1px] bg-border"></div>
           </motion.div>
         </AnimatePresence>
+        <ModelSelector
+          selectedModelId={selectedChatModel}
+          className={cn(!open && "ml-2")}
+        />
         {chatId ? (
           isLoading ? (
             <Ellipsis className="animate-pulse stroke-foreground/60" />

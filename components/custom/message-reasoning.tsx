@@ -1,0 +1,24 @@
+"use client";
+
+import { Reasoning, ReasoningContent, ReasoningTrigger } from "../ui/reasoning";
+
+interface MessageReasoningProps {
+  isLoading: boolean;
+  reasoning: string;
+}
+
+export function MessageReasoning({
+  isLoading,
+  reasoning,
+}: MessageReasoningProps) {
+  return (
+    <Reasoning
+      isStreaming={isLoading}
+      defaultOpen={true}
+      data-testid="message-reasoning"
+    >
+      <ReasoningTrigger />
+      <ReasoningContent>{reasoning}</ReasoningContent>
+    </Reasoning>
+  );
+}

@@ -9,6 +9,7 @@ import { BotMessageSquareIcon } from "lucide-react";
 import { memo } from "react";
 import { Streamdown } from "streamdown";
 import { Avatar, AvatarFallback } from "../ui/avatar";
+import { MessageReasoning } from "./message-reasoning";
 
 type MessageProps = {
   chatId: string;
@@ -49,7 +50,13 @@ function PureMessage({ isLoading, message }: MessageProps) {
           const key = `message-${message.id}-part-${index}`;
 
           if (type === "reasoning" && part.text?.trim().length > 0) {
-            return <div key={key}>TODO: Reasoning</div>;
+            return (
+              <MessageReasoning
+                key={key}
+                isLoading={isLoading}
+                reasoning={part.text}
+              />
+            );
           }
           if (type === "text") {
             // TODO: with regenerate and mode view/edit
