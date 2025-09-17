@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
+import { PreviewAttachment } from "./preview-attachment";
 
 function PureMultimodalInput({
   chatId,
@@ -110,7 +111,11 @@ function PureMultimodalInput({
   }, [input, setLocalStorageInput]);
 
   const handleInput = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(event.target.value);
+    const textarea = event.target;
+    setInput(textarea.value);
+
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -254,6 +259,40 @@ function PureMultimodalInput({
         onChange={handleFileChange}
         tabIndex={-1}
       />
+      {(attachments.length > 0 || uploadQueue.length > 0) && (
+        <div
+          data-testid="attachments-preview"
+          className="flex flex-row gap-2 items-end"
+        >
+          {attachments.map((attachment) => (
+            <PreviewAttachment
+              key={attachment.url}
+              attachment={attachment}
+              onRemove={() => {
+                setAttachments((currentAttachments) =>
+                  currentAttachments.filter((a) => a.url !== attachment.url)
+                );
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = "";
+                }
+              }}
+            />
+          ))}
+
+          {uploadQueue.map((filename) => (
+            <PreviewAttachment
+              key={filename}
+              attachment={{
+                id: "",
+                url: "",
+                name: filename,
+                contentType: "",
+              }}
+              isUploading={true}
+            />
+          ))}
+        </div>
+      )}
       <Textarea
         ref={textareaRef}
         placeholder="Send a message..."
@@ -276,6 +315,8 @@ function PureMultimodalInput({
           }
         }}
       />
+      <div className="absolute bottom-8"></div>
+
       <div className="absolute bottom-0 p-2 w-fit flex flex-row justify-start">
         <AttachmentsButton
           fileInputRef={fileInputRef}

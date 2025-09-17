@@ -98,20 +98,23 @@ model ChatFile {
 }
 
 model ModelRun {
-  id                 String   @id @default(uuid())
+  id                 String  @id @default(uuid())
   chatId             String
   userMessageId      String
   assistantMessageId String?
   modelId            String
   tag                String?
-  inputTokens        Int?
-  outputTokens       Int?
-  totalTokens        Int?
-  durationClientMs   Int
-  ttftMs             Int?
-  durationServerMs   Int?
-  stopped            Boolean  @default(false)
-  disconnected       Boolean  @default(false)
-  error              Boolean  @default(false)
-  createdAt          DateTime @default(now())
+
+  inputTokens      Int?
+  outputTokens     Int?
+  totalTokens      Int?
+  durationClientMs Int
+  ttftMs           Int?
+  durationServerMs Int?
+
+  stopped      Boolean  @default(false)
+  disconnected Boolean  @default(false)
+  error        Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
