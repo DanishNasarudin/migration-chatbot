@@ -24,7 +24,7 @@ export default function SidebarButton({
         variant={isActive ? "secondary" : "ghost"}
         className="w-full justify-start px-2!"
       >
-        {children ? children : name}
+        {children ? children : <p className="truncate">{name}</p>}
       </Button>
     </Link>
   );

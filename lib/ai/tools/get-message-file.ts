@@ -15,7 +15,7 @@ export const getMessageFile = tool({
     .refine((v) => v.fileId, { message: "fileId or checksum required" }),
 
   async execute({ chatId, messageId, fileId }) {
-    console.log(chatId, messageId, fileId, "THIS TRIGGERED?");
+    console.log("ai-tool: getMessageFile called");
     const chat = await prisma.chat.findUnique({
       where: { id: chatId },
       select: { id: true, userId: true },

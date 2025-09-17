@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { createFile } from "@/services/file";
 import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 
@@ -116,17 +117,13 @@ export async function POST(req: Request) {
     );
   }
 
-  const created = await prisma.datasetFile.create({
-    data: {
-      filename: file.name,
-      extension: ext || "",
-      mimeType: file.type || "application/octet-stream",
-      sizeBytes: file.size,
-      checksumSha256: sha256,
-      data: buf,
-      // uploadedBy: session?.user.id ?? null, // wire to your auth if needed
-    },
-    select: { id: true, filename: true },
+  const created = await createFile({
+    fileName: file.name,
+    extension: ext,
+    fileType: file.type,
+    sizeBytes: file.size,
+    checksumSha256: sha256,
+    data: buf,
   });
 
   return NextResponse.json(

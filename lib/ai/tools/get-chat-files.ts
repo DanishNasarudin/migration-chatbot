@@ -25,8 +25,7 @@ export const getChatFiles = tool({
       .default(8 * 1024 * 1024), // 8MB guard
   }),
   async execute({ chatId, files, maxTotalBytes }) {
-    console.log(chatId, files, maxTotalBytes, "THIS TRIGGERED? CHAT");
-    // resolve chat & owner
+    console.log("ai-tool: getChatFiles called");
     const chat = await prisma.chat.findUnique({
       where: { id: chatId },
       select: { id: true, userId: true },

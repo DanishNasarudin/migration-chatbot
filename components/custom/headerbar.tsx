@@ -1,10 +1,13 @@
 "use client";
 import { ChatNameDTO } from "@/app/(chat)/api/chats/[chatId]/name/route";
 import { cn, fetcher } from "@/lib/utils";
+import { deleteChatById } from "@/services/chat";
 import { Ellipsis, PanelLeftOpen, SquarePen, Trash2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { useCallback, useTransition } from "react";
+import { toast } from "sonner";
 import useSWR from "swr";
 import { useLocalStorage } from "usehooks-ts";
 import { Button } from "../ui/button";
@@ -19,12 +22,28 @@ import TooltipWrapper from "./tooltip-wrapper";
 
 export default function Headerbar() {
   const [open, setOpen] = useLocalStorage<boolean>("ui.sidebarOpen", false);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   const { chatId } = useParams();
   const { data, error, isLoading } = useSWR<ChatNameDTO>(
     chatId ? `/api/chats/${chatId}/name` : null,
     fetcher
   );
+
+  const handleDelete = useCallback(() => {
+    startTransition(async () => {
+      if (!data?.id) return;
+      toast.promise(deleteChatById({ id: data?.id }), {
+        loading: "Deleting chat...",
+        success: () => {
+          router.push("/chat");
+          return "Chat deleted!";
+        },
+        error: "Failed deleting chat.",
+      });
+    });
+  }, [data?.id, router]);
 
   return (
     <div className="flex justify-between p-2 h-topbar items-center border-b border-border">
@@ -84,7 +103,11 @@ export default function Headerbar() {
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuGroup>
-                <DropdownMenuItem className="text-destructive!">
+                <DropdownMenuItem
+                  className="text-destructive!"
+                  onClick={() => handleDelete()}
+                  disabled={isPending}
+                >
                   <Trash2 className="stroke-destructive" /> Delete
                 </DropdownMenuItem>
               </DropdownMenuGroup>
