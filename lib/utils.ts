@@ -70,3 +70,29 @@ export function convertToUIMessages(messages: Message[]): ChatMessage[] {
     },
   }));
 }
+
+type ModelRunMetric = {
+  chatId: string;
+  userMessageId: string;
+  assistantMessageId?: string;
+  modelId: string;
+  tag?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  durationClientMs: number;
+  ttftMs?: number;
+  durationServerMs?: number;
+  stopped?: boolean;
+  disconnected?: boolean;
+  error?: boolean;
+  createdAt: string;
+};
+
+export async function postMetrics(m: ModelRunMetric) {
+  await fetch("/api/metrics", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(m),
+  });
+}

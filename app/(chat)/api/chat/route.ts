@@ -16,6 +16,7 @@ import {
 import { deleteChatById, getChatById, saveChat } from "@/services/chat";
 import { getMessagesByChatId, saveMessages } from "@/services/message";
 import {
+  type LanguageModelUsage,
   convertToModelMessages,
   createUIMessageStream,
   JsonToSseTransformStream,
@@ -133,6 +134,9 @@ export async function POST(request: NextRequest) {
 
     console.log("Feed_AI: ", uiMessages, haveTools);
 
+    const serverStartedAt = Date.now();
+    let dataUsage: LanguageModelUsage | undefined;
+
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
         const result = streamText({
@@ -143,7 +147,6 @@ export async function POST(request: NextRequest) {
           experimental_activeTools: !haveTools
             ? []
             : ["getChatFiles", "getMessageFile"],
-          // experimental_activeTools: ["getChatFiles", "getMessageFile"],
           experimental_transform: smoothStream({ chunking: "word" }),
           tools: {
             getChatFiles,
@@ -154,6 +157,7 @@ export async function POST(request: NextRequest) {
             functionId: "stream-text",
           },
           onFinish: ({ usage }) => {
+            dataUsage = usage;
             dataStream.write({ type: "data-usage", data: usage });
           },
         });
@@ -163,6 +167,24 @@ export async function POST(request: NextRequest) {
         dataStream.merge(
           result.toUIMessageStream({
             sendReasoning: true,
+            messageMetadata: ({ part }) => {
+              if (part.type === "start") {
+                return {
+                  model: selectedChatModel,
+                  serverStartedAt,
+                };
+              }
+              if (part.type === "finish") {
+                console.log("data usage triggered", dataUsage, part.totalUsage);
+                return {
+                  inputTokens: part.totalUsage.inputTokens,
+                  outputTokens: part.totalUsage.outputTokens,
+                  totalTokens: part.totalUsage.totalTokens,
+                  serverDurationMs: Date.now() - serverStartedAt,
+                  finishedAt: Date.now(),
+                };
+              }
+            },
           })
         );
       },

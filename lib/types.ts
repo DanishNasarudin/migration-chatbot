@@ -1,13 +1,28 @@
-import { LanguageModelUsage, UIMessage } from "ai";
+import { InferUITool, LanguageModelUsage, UIMessage } from "ai";
 import z from "zod/v3";
+import { getChatFiles } from "./ai/tools/get-chat-files";
+import { getMessageFile } from "./ai/tools/get-message-file";
 
 export const messageMetadataSchema = z.object({
   createdAt: z.string(),
+  model: z.string().optional(),
+  totalTokens: z.number().optional(),
+  inputTokens: z.number().optional(),
+  outputTokens: z.number().optional(),
+  serverDurationMs: z.number().optional(),
+  serverStartedAt: z.number().optional(),
+  finishedAt: z.number().optional(),
 });
 
 export type MessageMetadata = z.infer<typeof messageMetadataSchema>;
 
-export type ChatTools = {};
+type getMessageFileTool = InferUITool<typeof getMessageFile>;
+type getChatFilesTool = InferUITool<typeof getChatFiles>;
+
+export type ChatTools = {
+  getMessageFile: getMessageFileTool;
+  getChatFiles: getChatFilesTool;
+};
 
 export type CustomUIDataTypes = {
   textDelta: string;
@@ -21,6 +36,7 @@ export type CustomUIDataTypes = {
   //   kind: ArtifactKind;
   clear: null;
   finish: null;
+  dataUsage: string;
   usage: LanguageModelUsage;
 };
 

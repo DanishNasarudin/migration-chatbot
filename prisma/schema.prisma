@@ -96,3 +96,22 @@ model ChatFile {
   @@unique([chatId, datasetFileId], name: "chatId_fileId")
   @@index([datasetFileId])
 }
+
+model ModelRun {
+  id                 String   @id @default(uuid())
+  chatId             String
+  userMessageId      String
+  assistantMessageId String?
+  modelId            String
+  tag                String?
+  inputTokens        Int?
+  outputTokens       Int?
+  totalTokens        Int?
+  durationClientMs   Int
+  ttftMs             Int?
+  durationServerMs   Int?
+  stopped            Boolean  @default(false)
+  disconnected       Boolean  @default(false)
+  error              Boolean  @default(false)
+  createdAt          DateTime @default(now())
+}

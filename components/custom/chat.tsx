@@ -2,10 +2,15 @@
 import { ChatSDKError } from "@/lib/errors";
 import { useDataStream } from "@/lib/providers/data-stream-provider";
 import { Attachment, ChatMessage } from "@/lib/types";
-import { cn, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
+import {
+  cn,
+  fetchWithErrorHandlers,
+  generateUUID,
+  postMetrics,
+} from "@/lib/utils";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { unstable_serialize, useSWRConfig } from "swr";
 import { Messages } from "./messages";
@@ -30,6 +35,10 @@ export default function Chat({
   const { setDataStream } = useDataStream();
 
   const [input, setInput] = useState<string>("");
+  const runTimesRef = useRef<
+    Record<string, { start: number; firstToken?: number }>
+  >({});
+  const currentUserMsgIdRef = useRef<string | null>(null);
 
   const {
     messages,
@@ -48,10 +57,15 @@ export default function Chat({
       api: "/api/chat",
       fetch: fetchWithErrorHandlers,
       prepareSendMessagesRequest({ messages, id, body }) {
+        const userMsg = messages.at(-1);
+        if (userMsg) {
+          runTimesRef.current[userMsg.id] = { start: performance.now() };
+          currentUserMsgIdRef.current = userMsg.id;
+        }
         return {
           body: {
             id,
-            message: messages.at(-1),
+            message: userMsg,
             selectedChatModel,
             userId,
             ...body,
@@ -60,12 +74,69 @@ export default function Chat({
       },
     }),
     onData: (dataPart) => {
+      const uid = currentUserMsgIdRef.current;
+      if (uid && !runTimesRef.current[uid]?.firstToken) {
+        // first server-sent event → TTFT
+        runTimesRef.current[uid].firstToken = performance.now();
+      }
+      console.log("client onData: ", dataPart);
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
     },
-    onFinish: () => {
+    onFinish: ({ message, isAbort, isDisconnect, isError }) => {
       mutate(unstable_serialize("/api/history"));
+      const userMsgId = currentUserMsgIdRef.current;
+      const start = userMsgId
+        ? runTimesRef.current[userMsgId]?.start
+        : undefined;
+      const first = userMsgId
+        ? runTimesRef.current[userMsgId]?.firstToken
+        : undefined;
+      const end = performance.now();
+      const durationClientMs = start ? Math.round(end - start) : 0;
+      const ttftMs = start && first ? Math.round(first - start) : undefined;
+
+      // Expect these from message.metadata (we’ll attach them server-side)
+      const meta = (message?.metadata ?? {}) as Partial<{
+        model: string;
+        inputTokens: number;
+        outputTokens: number;
+        totalTokens: number;
+        serverDurationMs: number;
+      }>;
+
+      void postMetrics({
+        chatId: id,
+        userMessageId: userMsgId ?? "",
+        assistantMessageId: message?.id,
+        modelId: meta.model ?? selectedChatModel,
+        inputTokens: meta.inputTokens,
+        outputTokens: meta.outputTokens,
+        totalTokens: meta.totalTokens,
+        durationClientMs,
+        ttftMs,
+        durationServerMs: meta.serverDurationMs,
+        stopped: Boolean(isAbort),
+        disconnected: Boolean(isDisconnect),
+        error: Boolean(isError),
+        createdAt: new Date().toISOString(),
+      });
     },
     onError: (error) => {
+      const uid = currentUserMsgIdRef.current;
+      if (uid) {
+        const start = runTimesRef.current[uid]?.start;
+        const end = performance.now();
+        if (start) {
+          void postMetrics({
+            chatId: id,
+            userMessageId: uid,
+            modelId: selectedChatModel,
+            durationClientMs: Math.round(end - start),
+            stopped: true,
+            createdAt: new Date().toISOString(),
+          });
+        }
+      }
       if (error instanceof ChatSDKError) {
         toast.error(error.message);
         console.log(`Error occured: ${error.message}`);
