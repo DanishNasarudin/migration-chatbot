@@ -1,5 +1,6 @@
 import { ChatSDKError } from "@/lib/errors";
 import prisma from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { metricSchema, PostRequestBody } from "./schema";
 
@@ -20,6 +21,8 @@ export async function POST(request: Request) {
       createdAt: new Date(requestBody.createdAt),
     },
   });
+
+  revalidatePath("/dashboard");
 
   return NextResponse.json({ ok: true });
 }
