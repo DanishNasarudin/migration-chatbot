@@ -2,7 +2,12 @@
 import { Chat } from "@/lib/generated/prisma";
 import { useScrollRef } from "@/lib/hooks/use-scroll-ref";
 import { fetcher } from "@/lib/utils";
-import { Book, Loader2, PanelLeftClose, SquarePen } from "lucide-react";
+import {
+  LayoutDashboard,
+  Loader2,
+  PanelLeftClose,
+  SquarePen,
+} from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -66,8 +71,8 @@ export default function Sidebar({ userId }: { userId?: string }) {
           </TooltipWrapper>
         </div>
         <div className="flex flex-col px-2 pb-2">
-          <SidebarButton id="/guide">
-            <Book /> Guide
+          <SidebarButton id="/dashboard">
+            <LayoutDashboard /> Dashboard
           </SidebarButton>
         </div>
       </div>
