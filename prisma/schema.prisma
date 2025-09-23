@@ -234,15 +234,22 @@ model Experiment {
   @@index([specId])
 }
 
+enum ExperimentStatus {
+  queue
+  running
+  completed
+}
+
 model Trial {
-  id              String  @id @default(cuid())
+  id              String   @id @default(cuid())
   experimentId    String
   modelId         String
   promptMode      String
-  unitTool        Boolean @default(false)
+  unitTool        Boolean  @default(false)
   driftCase       String?
   validationRunId String?
   result          Json // roll-up summary for quick lists
+  createdAt       DateTime @default(now())
 
   experiment    Experiment     @relation(fields: [experimentId], references: [id], onDelete: Cascade)
   validationRun ValidationRun? @relation(fields: [validationRunId], references: [id])
