@@ -41,25 +41,6 @@ model Message {
   @@index([chatId], map: "Message_chatId_index")
 }
 
-model DatasetFile {
-  id             String @id @default(cuid())
-  filename       String
-  extension      String
-  mimeType       String
-  sizeBytes      Int
-  checksumSha256 String @db.VarChar(64)
-  data           Bytes  @db.ByteA
-
-  messageLinks MessageFile[]
-  chatLinks    ChatFile[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([checksumSha256])
-  @@index([mimeType])
-}
-
 model MessageFile {
   id            String      @id @default(cuid())
   messageId     String
@@ -117,4 +98,155 @@ model ModelRun {
   error        Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model DatasetFile {
+  id             String @id @default(cuid())
+  filename       String
+  extension      String
+  mimeType       String
+  sizeBytes      Int
+  checksumSha256 String @db.VarChar(64)
+  data           Bytes  @db.ByteA
+
+  messageLinks   MessageFile[]
+  chatLinks      ChatFile[]
+  dataProfiles   DatasetProfile[]
+  validationRuns ValidationRun[]
+  experiments    Experiment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([checksumSha256])
+  @@index([mimeType])
+}
+
+model DatasetProfile {
+  id            String   @id @default(cuid())
+  datasetFileId String
+  // derived stats
+  columns       Json // per-column inferredType/nullRate/distinctCount/unitCandidates/regexHits, etc.
+  rowCount      Int
+  sampleHash    String // fingerprint of first N rows to track drift
+  createdAt     DateTime @default(now())
+
+  datasetFile DatasetFile @relation(fields: [datasetFileId], references: [id], onDelete: Cascade)
+
+  @@index([datasetFileId])
+}
+
+model Spec {
+  id      String     @id @default(cuid())
+  name    String
+  version String // e.g., "v1", "2025-09-22"
+  domain  String? // finance|healthcare|ecommerce|generic
+  status  SpecStatus @default(draft)
+  raw     Json // normalized spec (see SpecField) + raw yaml/json for import/export
+
+  fields         SpecField[]
+  validationRuns ValidationRun[]
+  experiments    Experiment[]
+
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, version])
+}
+
+enum SpecStatus {
+  draft
+  active
+  archived
+}
+
+model SpecField {
+  id        String   @id @default(cuid())
+  specId    String
+  name      String
+  type      String // "string" | "number" | "date" | ...
+  nullable  Boolean  @default(true)
+  unit      String? // "MYR", "kg", etc.
+  regex     String? // optional pattern
+  enumVals  String[] // allowed values
+  isPrimary Boolean  @default(false)
+
+  spec Spec @relation(fields: [specId], references: [id], onDelete: Cascade)
+
+  @@unique([specId, name])
+  @@index([specId])
+}
+
+model ValidationRun {
+  id            String   @id @default(cuid())
+  datasetFileId String
+  specId        String
+  modelId       String? // optional if run via chat
+  promptMode    String? // baseline|fewshot|schema_guided
+  unitTool      Boolean  @default(false)
+  driftCase     String? // header_noise|unit_change|type_shift|missing_field|multi_table
+  passed        Boolean
+  metrics       Json // {schemaMatch:{precision,recall,f1}, violations:{byType}, ...}
+  profileHash   String?
+  createdAt     DateTime @default(now())
+
+  trials      Trial[]
+  issues      ValidationIssue[]
+  datasetFile DatasetFile       @relation(fields: [datasetFileId], references: [id], onDelete: Cascade)
+  spec        Spec              @relation(fields: [specId], references: [id], onDelete: Cascade)
+
+  @@index([datasetFileId])
+  @@index([specId])
+  @@index([profileHash])
+}
+
+model ValidationIssue {
+  id       String  @id @default(cuid())
+  runId    String
+  severity String // info|warn|error
+  code     String // e.g., "MISSING_COLUMN", "TYPE_MISMATCH", "UNIT_MISMATCH", "PK_DUPLICATE"
+  colName  String?
+  rowIndex Int?
+  value    String?
+  expected String?
+  message  String
+
+  run ValidationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}
+
+model Experiment {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  datasetFileId String
+  specId        String
+  matrix        Json // {models:[], promptModes:[], unitTool:[true,false], driftCases:[]}
+  createdAt     DateTime @default(now())
+
+  trials      Trial[]
+  datasetFile DatasetFile @relation(fields: [datasetFileId], references: [id], onDelete: Cascade)
+  spec        Spec        @relation(fields: [specId], references: [id], onDelete: Cascade)
+
+  @@index([datasetFileId])
+  @@index([specId])
+}
+
+model Trial {
+  id              String  @id @default(cuid())
+  experimentId    String
+  modelId         String
+  promptMode      String
+  unitTool        Boolean @default(false)
+  driftCase       String?
+  validationRunId String?
+  result          Json // roll-up summary for quick lists
+
+  experiment    Experiment     @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  validationRun ValidationRun? @relation(fields: [validationRunId], references: [id])
+
+  @@index([experimentId])
+  @@index([validationRunId])
 }

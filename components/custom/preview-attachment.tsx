@@ -1,4 +1,4 @@
-import type { Attachment } from "@/lib/types";
+import type { Attachment } from "@/types/ai";
 import { File, Loader2, X } from "lucide-react";
 import Image from "next/image";
 import { Button } from "../ui/button";

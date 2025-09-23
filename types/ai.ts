@@ -1,7 +1,7 @@
 import { InferUITool, LanguageModelUsage, UIMessage } from "ai";
 import z from "zod/v3";
-import { getChatFiles } from "./ai/tools/get-chat-files";
-import { getMessageFile } from "./ai/tools/get-message-file";
+import { getChatFiles } from "../lib/ai/tools/get-chat-files";
+import { getMessageFile } from "../lib/ai/tools/get-message-file";
 
 export const messageMetadataSchema = z.object({
   createdAt: z.string(),

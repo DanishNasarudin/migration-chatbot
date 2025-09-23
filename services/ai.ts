@@ -3,8 +3,8 @@
 import { FileBlob, normalizeForModel } from "@/lib/ai/helper";
 import { DEFAULT_TITLE_MODEL, myProvider } from "@/lib/ai/models";
 import prisma from "@/lib/prisma";
-import { ChatMessage } from "@/lib/types";
-import { generateUUID } from "@/lib/utils";
+import { generateUUID, systemMessage } from "@/lib/utils";
+import { ChatMessage } from "@/types/ai";
 import { generateText, UIMessage } from "ai";
 import { cookies } from "next/headers";
 
@@ -275,15 +275,6 @@ function dedupe<T>(arr: T[]): T[] {
   return [...new Set(arr)];
 }
 
-function systemMessage(text: string): ChatMessage {
-  return {
-    id: cryptoRandomId(),
-    role: "system",
-    parts: [{ type: "text", text }],
-    metadata: { createdAt: new Date().toISOString() },
-  };
-}
-
 function renderHeader(
   includeHeader: boolean,
   files: ResolvedFileText[],
@@ -374,15 +365,6 @@ function formatBytes(bytes: number): string {
     u++;
   }
   return `${v.toFixed(1)} ${units[u]}`;
-}
-
-function cryptoRandomId(): string {
-  // good-enough UUID-ish without pulling extra deps
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (crypto.getRandomValues(new Uint8Array(1))[0] & 0xf) >> 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
 }
 
 async function resolveFileText(fileId: string) {

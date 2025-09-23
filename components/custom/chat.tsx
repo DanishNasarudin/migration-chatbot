@@ -1,13 +1,13 @@
 "use client";
 import { ChatSDKError } from "@/lib/errors";
 import { useDataStream } from "@/lib/providers/data-stream-provider";
-import { Attachment, ChatMessage } from "@/lib/types";
 import {
   cn,
   fetchWithErrorHandlers,
   generateUUID,
   postMetrics,
 } from "@/lib/utils";
+import { Attachment, ChatMessage } from "@/types/ai";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useRef, useState } from "react";

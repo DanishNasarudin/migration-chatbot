@@ -1,7 +1,7 @@
 import { myProvider } from "@/lib/ai/models";
 import { useScrollToBottom } from "@/lib/hooks/use-scroll-to-bottom";
-import { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Attachment, ChatMessage } from "@/types/ai";
 import type { UIMessage, UseChatHelpers } from "@ai-sdk/react";
 import { ChatStatus, LanguageModelUsage } from "ai";
 import equal from "fast-deep-equal";

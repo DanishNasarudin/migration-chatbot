@@ -1,8 +1,8 @@
 "use client";
 
 import { useDataStream } from "@/lib/providers/data-stream-provider";
-import { ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
+import { ChatMessage } from "@/types/ai";
 import { UseChatHelpers } from "@ai-sdk/react";
 import equal from "fast-deep-equal";
 import { BotMessageSquareIcon } from "lucide-react";

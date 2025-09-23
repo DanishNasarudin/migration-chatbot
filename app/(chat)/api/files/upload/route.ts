@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { createFile } from "@/services/file";
+import { profileDatasetFile } from "@/services/profile";
 import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 
@@ -125,6 +126,36 @@ export async function POST(req: Request) {
     checksumSha256: sha256,
     data: buf,
   });
+
+  const prof = await profileDatasetFile(created.id);
+  const sampleHash = createHash("sha1")
+    .update(
+      JSON.stringify({
+        rc: prof.rowCount,
+        cols: prof.columns.map((c) => c.name),
+      })
+    )
+    .digest("hex");
+
+  const existingProfile = await prisma.datasetProfile.findFirst({
+    where: {
+      sampleHash,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!existingProfile) {
+    await prisma.datasetProfile.create({
+      data: {
+        datasetFileId: created.id,
+        columns: prof.columns as any,
+        rowCount: prof.rowCount,
+        sampleHash,
+      },
+    });
+  }
 
   return NextResponse.json(
     {

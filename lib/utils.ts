@@ -1,10 +1,11 @@
+import { SpecDoc } from "@/types/spec";
 import { UIMessagePart } from "ai";
 import { clsx, type ClassValue } from "clsx";
 import { formatISO } from "date-fns";
 import { twMerge } from "tailwind-merge";
+import { ChatMessage, ChatTools, CustomUIDataTypes } from "../types/ai";
 import { ChatSDKError, ErrorCode } from "./errors";
-import { Message } from "./generated/prisma";
-import { ChatMessage, ChatTools, CustomUIDataTypes } from "./types";
+import { Message, Prisma } from "./generated/prisma";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -95,4 +96,41 @@ export async function postMetrics(m: ModelRunMetric) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(m),
   });
+}
+
+export function systemMessage(text: string): ChatMessage {
+  return {
+    id: generateUUID(),
+    role: "system",
+    parts: [{ type: "text", text }],
+    metadata: { createdAt: new Date().toISOString() },
+  };
+}
+
+export function toInputJson(
+  spec: SpecDoc,
+  finalVersion: string
+): Prisma.InputJsonValue {
+  const normalized = {
+    ...spec,
+    version: finalVersion,
+    fields: spec.fields.map((f) => ({
+      ...f,
+      // RegExp is not JSON; persist pattern string instead
+      regex: typeof f.regex === "string" ? f.regex : null,
+      nullable: f.nullable ?? true,
+      unit: f.unit ?? null,
+      enumVals: f.enumVals ?? [],
+      isPrimary: !!f.isPrimary,
+    })),
+  };
+
+  // strip undefined & non-JSON values (functions, Maps, etc.)
+  return JSON.parse(
+    JSON.stringify(normalized, (_k, v) => {
+      if (v instanceof RegExp) return v.source;
+      if (v === undefined) return null;
+      return v;
+    })
+  ) as Prisma.InputJsonValue;
 }

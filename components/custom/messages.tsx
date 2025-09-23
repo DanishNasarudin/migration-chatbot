@@ -1,6 +1,6 @@
 import { useMessages } from "@/lib/hooks/use-messages";
 import { useDataStream } from "@/lib/providers/data-stream-provider";
-import { ChatMessage } from "@/lib/types";
+import { ChatMessage } from "@/types/ai";
 import { UseChatHelpers } from "@ai-sdk/react";
 import { ArrowDownIcon } from "lucide-react";
 import { memo, useEffect } from "react";

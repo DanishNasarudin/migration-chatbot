@@ -2,11 +2,12 @@ import { ChatModel, MODEL_REGISTRY, myProvider } from "@/lib/ai/models";
 import { regularPrompt } from "@/lib/ai/prompts";
 import { getChatFiles } from "@/lib/ai/tools/get-chat-files";
 import { getMessageFile } from "@/lib/ai/tools/get-message-file";
+import { saveSpec } from "@/lib/ai/tools/save-spec";
+import { validateAgainstSpec } from "@/lib/ai/tools/validate-against-spec";
 import { isProductionEnvironment } from "@/lib/constants";
 import { ChatSDKError } from "@/lib/errors";
 import { Prisma } from "@/lib/generated/prisma";
-import { ChatMessage } from "@/lib/types";
-import { convertToUIMessages, generateUUID } from "@/lib/utils";
+import { convertToUIMessages, generateUUID, systemMessage } from "@/lib/utils";
 import {
   buildFileNudge,
   buildInlineFileNudge,
@@ -15,6 +16,7 @@ import {
 } from "@/services/ai";
 import { deleteChatById, getChatById, saveChat } from "@/services/chat";
 import { getMessagesByChatId, saveMessages } from "@/services/message";
+import { ChatMessage } from "@/types/ai";
 import {
   type LanguageModelUsage,
   convertToModelMessages,
@@ -115,6 +117,14 @@ export async function POST(request: NextRequest) {
       }),
     };
 
+    const systemAttributes: ChatMessage = systemMessage(
+      [
+        "[[SYSTEM_ATTRIBUTES]]",
+        `createdBy: ${userId}`,
+        "[[/SYSTEM_ATTRIBUTES]]",
+      ].join("\n\n")
+    );
+
     if (fileIds.length > 0)
       await linkFilesToMessageAndChat({
         chatId: id,
@@ -127,6 +137,7 @@ export async function POST(request: NextRequest) {
     });
 
     const uiMessages: ChatMessage[] = [
+      systemAttributes,
       ...convertToUIMessages(messagesFromDb),
       ...(!haveTools && nudge ? [nudge] : fileNudge ? [fileNudge] : []),
       messageNew,
@@ -143,14 +154,21 @@ export async function POST(request: NextRequest) {
           model: myProvider.languageModel(selectedChatModel),
           system: regularPrompt,
           messages: convertToModelMessages(uiMessages),
-          stopWhen: stepCountIs(5),
+          stopWhen: stepCountIs(10),
           experimental_activeTools: !haveTools
             ? []
-            : ["getChatFiles", "getMessageFile"],
+            : [
+                "getChatFiles",
+                "getMessageFile",
+                "saveSpec",
+                "validateAgainstSpec",
+              ],
           experimental_transform: smoothStream({ chunking: "word" }),
           tools: {
             getChatFiles,
             getMessageFile,
+            saveSpec,
+            validateAgainstSpec,
           },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
