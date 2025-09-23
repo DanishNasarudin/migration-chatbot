@@ -6,6 +6,7 @@ import { DefaultArgs } from "@/lib/generated/prisma/runtime/library";
 import prisma from "@/lib/prisma";
 import { toInputJson } from "@/lib/utils";
 import { SpecDoc } from "@/types/spec";
+import { revalidatePath } from "next/cache";
 
 export async function persistSpecDoc(
   spec: SpecDoc,
@@ -118,4 +119,40 @@ export async function getSpecByFileId({
   } catch (error) {
     throw new ChatSDKError("bad_request:database", "Failed to get specs");
   }
+}
+
+export async function getSpecSummary(specId: string) {
+  const spec = await prisma.spec.findUnique({
+    where: { id: specId },
+    include: { fields: true },
+  });
+  if (!spec) throw new Error("Spec not found");
+
+  const raw = spec.raw as SpecDoc | null;
+  const primaryKeys = raw?.keys?.primary ?? [];
+  const uniques = raw?.keys?.unique ?? [];
+  const previewFields = (raw?.fields ?? []).slice(0, 10).map((f) => ({
+    name: f.name,
+    type: f.type,
+    nullable: f.nullable ?? true,
+    unit: (f as any).unit ?? undefined,
+  }));
+
+  return {
+    id: spec.id,
+    name: spec.name,
+    version: spec.version,
+    domain: spec.domain ?? "generic",
+    status: spec.status,
+    updatedAt: spec.updatedAt.toISOString(),
+    fieldCount: spec.fields.length,
+    primaryKeys,
+    uniquesCount: uniques.length,
+    previewFields,
+  };
+}
+
+export async function deleteSpec(specId: string) {
+  await prisma.spec.delete({ where: { id: specId } });
+  revalidatePath("/specs");
 }

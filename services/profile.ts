@@ -4,7 +4,14 @@ import { parse } from "csv-parse/sync";
 
 export type ColumnProfile = {
   name: string;
-  inferredType: "string" | "number" | "boolean" | "date" | "unknown";
+  inferredType:
+    | "string"
+    | "number"
+    | "integer"
+    | "boolean"
+    | "date"
+    | "datetime"
+    | "unknown";
   nullRate: number;
   distinctCount: number;
   unitCandidates?: string[];
@@ -49,18 +56,36 @@ export async function profileDatasetFile(
   return { rowCount: body.length, columns: cols };
 }
 
-function inferType(values: string[]): ColumnProfile["inferredType"] {
+function inferType(samples: unknown[]): ColumnProfile["inferredType"] {
   let n = 0,
     b = 0,
     d = 0;
-  for (const v of values) {
-    if (!isNaN(Number(v))) n++;
-    else if (["true", "false"].includes(v.toLowerCase())) b++;
-    else if (!isNaN(Date.parse(v))) d++;
+  for (const v of samples) {
+    if (v == null || v === "") continue;
+    if (typeof v === "number") {
+      n++;
+      continue;
+    }
+    if (typeof v === "boolean") {
+      b++;
+      continue;
+    }
+    const s = String(v).trim();
+    if (/^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}:\d{2})?$/.test(s)) {
+      d++;
+      continue;
+    }
+    if (/^-?\d+(\.\d+)?$/.test(s)) {
+      n++;
+      continue;
+    }
   }
-  const m = Math.max(n, b, d);
-  if (m === 0) return "string";
-  return m === n ? "number" : m === b ? "boolean" : "date";
+  if (d > 0 && d >= n && d >= b)
+    return samples.some((v) => String(v).includes(":")) ? "datetime" : "date";
+  if (n > 0 && n >= b)
+    return samples.some((v) => /^\d+$/.test(String(v))) ? "integer" : "number";
+  if (b > 0) return "boolean";
+  return "string";
 }
 
 function guessUnits(values: string[]): string[] {
