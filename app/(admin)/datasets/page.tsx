@@ -1,4 +1,5 @@
 import { DatasetsTable } from "@/components/custom/datasets-table";
+import { DatasetsUpload } from "@/components/custom/datasets-upload";
 import prisma from "@/lib/prisma";
 
 export default async function DatasetsPage() {
@@ -15,6 +16,7 @@ export default async function DatasetsPage() {
   return (
     <div className="p-6 space-y-4">
       <h1 className="text-2xl font-semibold">Datasets</h1>
+      <DatasetsUpload />
       <DatasetsTable
         items={files.map((f) => ({
           id: f.id,

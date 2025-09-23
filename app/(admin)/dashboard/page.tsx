@@ -29,7 +29,9 @@ export default async function Page() {
       <main className="space-y-4">
         <div className="flex gap-4">
           <div className="border border-border rounded-lg flex flex-col justify-center items-center px-8 py-4 w-full">
-            <h1 className="text-3xl font-extrabold">{succRates[0].runs}</h1>
+            <h1 className="text-3xl font-extrabold">
+              {succRates.length > 0 ? succRates[0].runs : "0"}
+            </h1>
             <p className="whitespace-nowrap">Chat runs</p>
           </div>
           <div className="border border-border rounded-lg flex flex-col justify-center items-center px-8 py-4 w-full">

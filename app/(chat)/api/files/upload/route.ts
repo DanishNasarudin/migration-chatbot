@@ -8,7 +8,7 @@ export const runtime = "nodejs"; // allows Node Buffer/crypto
 export const dynamic = "force-dynamic"; // if you need it dynamic
 export const maxDuration = 30; // Vercel safeguard, adjust as needed
 
-const DEFAULT_MAX_BYTES = 25 * 1024 * 1024; // 25 MB
+const DEFAULT_MAX_BYTES = 200 * 1024 * 1024; // 200 MB
 const MAX_BYTES = Number(process.env.MAX_FILE_BYTES ?? DEFAULT_MAX_BYTES);
 
 // Explicit “data” file allowlist (ext + MIME)

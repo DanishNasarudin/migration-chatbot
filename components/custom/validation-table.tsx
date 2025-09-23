@@ -5,15 +5,16 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
+  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -27,7 +28,7 @@ import {
 } from "@/components/ui/table";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
-import { useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import { deleteValidationRun } from "@/services/validate-run";
 import { MoreHorizontal } from "lucide-react";
@@ -48,6 +49,7 @@ type Item = {
 
 export function ValidationTable({ items }: { items: Item[] }) {
   const [isPending, start] = useTransition();
+  const itemsMemo = useMemo(() => items, [items]);
 
   return (
     <Table>
@@ -64,12 +66,15 @@ export function ValidationTable({ items }: { items: Item[] }) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {items.map((r) => {
+        {itemsMemo.map((r) => {
           const f1 = r.metrics?.schemaMatch?.f1;
           const rows =
             r.metrics?.validRows != null && r.metrics?.totalRows != null
               ? `${r.metrics.validRows}/${r.metrics.totalRows}`
               : "—";
+
+          const [menuOpen, setMenuOpen] = useState(false);
+          const [openDelete, setOpenDelete] = useState(false);
           return (
             <TableRow key={r.id} className="align-top">
               <TableCell title={new Date(r.createdAt).toLocaleString()}>
@@ -101,44 +106,62 @@ export function ValidationTable({ items }: { items: Item[] }) {
               <TableCell className="tabular-nums">{rows}</TableCell>
               <TableCell>{r.unitTool ? "on" : "off"}</TableCell>
               <TableCell className="text-right">
-                <DropdownMenu>
+                <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" aria-label="Actions">
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuItem asChild>
-                      <Link href={`/validation/${r.id}`}>Open</Link>
-                    </DropdownMenuItem>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <DropdownMenuItem className="text-red-600 focus:text-red-600">
-                          Delete
-                        </DropdownMenuItem>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>
-                            Delete validation run?
-                          </AlertDialogTitle>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            className="bg-red-600 hover:bg-red-700"
-                            onClick={() =>
-                              start(async () => {
-                                await deleteValidationRun(r.id);
-                              })
-                            }
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem asChild>
+                        <Link href={`/validation/${r.id}`}>Open</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-red-600 focus:text-red-600"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setOpenDelete(true);
+                        }}
+                        disabled={isPending}
+                      >
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
                   </DropdownMenuContent>
+                  <AlertDialog open={openDelete} onOpenChange={setOpenDelete}>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          Delete validation run?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently
+                          delete your account and remove your data from our
+                          servers.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isPending}>
+                          Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-red-600 hover:bg-red-700"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            start(async () => {
+                              await deleteValidationRun(r.id).then(() => {
+                                setOpenDelete(false);
+                              });
+                            });
+                          }}
+                          disabled={isPending}
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </DropdownMenu>
               </TableCell>
             </TableRow>

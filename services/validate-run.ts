@@ -50,7 +50,7 @@ export async function runValidation(
   const [header, ...rows] = parse(text, {
     skip_empty_lines: true,
   }) as string[][];
-  const zodSchema = zodFromSpec(spec);
+  const zodSchema = zodFromSpec(spec, opts);
 
   const issues: ValidationIssue[] = [];
 

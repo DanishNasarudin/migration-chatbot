@@ -33,7 +33,7 @@ export interface FilePreview {
 }
 
 // --- Helpers for text-like content
-const MAX_CHARS = 80_000; // keep prompts small
+const MAX_CHARS = 10_000; // keep prompts small
 
 function clip(s: string) {
   return s.length > MAX_CHARS
@@ -74,6 +74,108 @@ async function parseParquetToMarkdown(u8: Uint8Array): Promise<string> {
   return "Parquet file detected. Implement parquet → markdown preview in your runtime.";
 }
 
+// ------- CSV preview helpers (cell clipping) -------
+type CsvPreviewOpts = {
+  maxRows?: number; // how many rows to preview
+  maxCellChars?: number; // per-cell clip length
+};
+
+const DEFAULT_CSV_OPTS: Required<CsvPreviewOpts> = {
+  maxRows: 5,
+  maxCellChars: 120,
+};
+
+function clipCell(s: string, max = DEFAULT_CSV_OPTS.maxCellChars): string {
+  return s.length > max ? s.slice(0, max) + "…" : s;
+}
+
+function needsQuotes(s: string): boolean {
+  return /[",\r\n]/.test(s);
+}
+
+function escapeCsvCell(s: string): string {
+  return `"${s.replace(/"/g, `""`)}"`;
+}
+
+function serializeCsv(rows: string[][]): string {
+  return rows
+    .map((r) => r.map((c) => (needsQuotes(c) ? escapeCsvCell(c) : c)).join(","))
+    .join("\n");
+}
+
+/**
+ * Minimal CSV parser that respects quotes, escaped quotes ("") and CRLF.
+ * Stops after `maxRows` are parsed.
+ */
+function parseCsvRows(text: string, maxRows: number): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let inQuotes = false;
+
+  const pushCell = () => {
+    row.push(cell);
+    cell = "";
+  };
+  const pushRow = () => {
+    pushCell();
+    rows.push(row);
+    row = [];
+  };
+
+  for (let i = 0; i < text.length && rows.length < maxRows; i++) {
+    const ch = text[i];
+
+    if (inQuotes) {
+      if (ch === `"`) {
+        // escaped quote?
+        if (text[i + 1] === `"`) {
+          cell += `"`; // add one quote
+          i += 1; // skip the second one
+        } else {
+          inQuotes = false; // closing quote
+        }
+      } else {
+        cell += ch;
+      }
+      continue;
+    }
+
+    // not in quotes
+    if (ch === `"`) {
+      inQuotes = true;
+    } else if (ch === ",") {
+      pushCell();
+    } else if (ch === "\n") {
+      pushRow();
+    } else if (ch === "\r") {
+      // handle CRLF or lone CR
+      if (text[i + 1] === "\n") i += 1;
+      pushRow();
+    } else {
+      cell += ch;
+    }
+  }
+
+  // flush trailing data (if any) and if we still need a row
+  if (rows.length < maxRows && (cell.length > 0 || row.length > 0)) {
+    pushRow();
+  }
+
+  return rows.slice(0, maxRows);
+}
+
+/** Build a clipped CSV preview string */
+function buildClippedCsvPreview(
+  text: string,
+  opts: CsvPreviewOpts = {}
+): string {
+  const { maxRows, maxCellChars } = { ...DEFAULT_CSV_OPTS, ...opts };
+  const rows = parseCsvRows(text, maxRows);
+  const clipped = rows.map((r) => r.map((c) => clipCell(c, maxCellChars)));
+  return serializeCsv(clipped);
+}
+
 // --- Main normalizer
 export async function normalizeForModel(file: FileBlob): Promise<FilePreview> {
   const { name, mediaType, data } = file;
@@ -93,12 +195,15 @@ export async function normalizeForModel(file: FileBlob): Promise<FilePreview> {
       case "text/csv":
       case "application/csv": {
         const text = decodeUtf8(data);
-        const lines = text.split(/\r?\n/).slice(0, 20).join("\n");
+        const preview = buildClippedCsvPreview(text, {
+          maxRows: 10,
+          maxCellChars: 80,
+        });
         return {
           name,
           mediaType,
-          summary: "CSV (first ~20 lines)",
-          previewText: clip(lines),
+          summary: "CSV (first ~5 lines)",
+          previewText: clip(preview),
         };
       }
 

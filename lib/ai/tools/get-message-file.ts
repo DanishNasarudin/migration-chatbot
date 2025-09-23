@@ -72,6 +72,7 @@ export const getMessageFile = tool({
     };
 
     const { summary, previewText } = await normalizeForModel(fileBlob);
+    console.log(previewText, "BROOO");
     return {
       filename: file.filename,
       mediaType: file.mimeType,

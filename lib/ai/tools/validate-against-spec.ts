@@ -148,6 +148,7 @@ export const validateAgainstSpec = tool({
       include: { issues: true },
     });
 
+    console.log(toValidateResult(run), "VALIDATE ???");
     return toValidateResult(run);
   },
 });

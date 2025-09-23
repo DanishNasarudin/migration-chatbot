@@ -61,7 +61,10 @@ export const saveSpec = tool({
     version: z.string().min(1).describe("Version of the Spec, (e.g. v1, v2)"),
     domain: z
       .enum(["finance", "healthcare", "ecommerce", "generic"])
-      .default("generic"),
+      .default("generic")
+      .describe(
+        "Domain of the dataset, (e.g. finance, healthcare, ecommerce, generic)"
+      ),
     createdBy: z.string().min(1),
     primaryKeyHint: z.array(z.string()).optional(),
     unitHints: z.record(z.string(), z.string()).optional(),
@@ -179,6 +182,7 @@ export const saveSpec = tool({
 
     // 3) Persist as a NEW spec version (status=draft), return specId
     const specRow = await persistSpecDoc(draft, createdBy, onConflict);
+    console.log(draft, "SPEC IS THIS??");
     return {
       specId: specRow.id,
       name: specRow.name,
