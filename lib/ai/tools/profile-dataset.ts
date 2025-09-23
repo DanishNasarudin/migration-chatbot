@@ -1,5 +1,10 @@
 import prisma from "@/lib/prisma";
-import { DatasetProfileResult, profileDatasetFile } from "@/services/profile";
+import { computeNullRate, detectUnits, inferType } from "@/lib/profiler";
+import {
+  ColumnProfile,
+  DatasetProfileResult,
+  profileDatasetFile,
+} from "@/services/profile";
 import { tool } from "ai";
 import { createHash } from "crypto";
 import z from "zod/v3";
@@ -15,11 +20,36 @@ export const profileDataset = tool({
   execute: async ({ datasetFileId }): Promise<DatasetProfileResult> => {
     console.log("ai-tool: profileDataset called");
     const result = await profileDatasetFile(datasetFileId);
+    const enhancedColumns: ColumnProfile[] = result.columns.map((c: any) => {
+      const samples: unknown[] = Array.isArray(c.samples)
+        ? c.samples.slice(0, 200)
+        : [];
+      return {
+        name: c.name,
+        inferredType: c.inferredType ?? inferType(samples),
+        nullRate:
+          typeof c.nullRate === "number"
+            ? c.nullRate
+            : computeNullRate(samples, result.rowCount),
+        distinctCount:
+          typeof c.distinctCount === "number"
+            ? c.distinctCount
+            : new Set(
+                samples
+                  .filter((v) => v != null && v !== "")
+                  .map((v) => String(v))
+              ).size,
+        unitCandidates:
+          Array.isArray(c.unitCandidates) && c.unitCandidates.length
+            ? c.unitCandidates
+            : detectUnits(c.name, samples),
+      };
+    });
     const sampleHash = createHash("sha1")
       .update(
         JSON.stringify({
           rc: result.rowCount,
-          cols: result.columns.map((c) => c.name),
+          cols: enhancedColumns.map((c) => c.name),
         })
       )
       .digest("hex");
@@ -37,7 +67,7 @@ export const profileDataset = tool({
     await prisma.datasetProfile.create({
       data: {
         datasetFileId,
-        columns: result.columns as unknown as any,
+        columns: enhancedColumns as unknown as any,
         rowCount: result.rowCount,
         sampleHash,
       },

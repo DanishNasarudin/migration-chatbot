@@ -1,5 +1,10 @@
 import prisma from "@/lib/prisma";
-import { DatasetProfileResult, profileDatasetFile } from "@/services/profile";
+import { computeNullRate, detectUnits, inferType } from "@/lib/profiler";
+import {
+  ColumnProfile,
+  DatasetProfileResult,
+  profileDatasetFile,
+} from "@/services/profile";
 import { runValidation } from "@/services/validate-run";
 import { SpecDoc } from "@/types/spec";
 import { tool } from "ai";
@@ -53,18 +58,45 @@ export const validateAgainstSpec = tool({
     if (!profile) {
       // Auto-profile if none exists
       const p = await profileDatasetFile(datasetFileId);
+      const enhancedColumns: ColumnProfile[] = p.columns.map((c: any) => {
+        const samples: unknown[] = Array.isArray(c.samples)
+          ? c.samples.slice(0, 200)
+          : [];
+        return {
+          name: c.name,
+          inferredType: c.inferredType ?? inferType(samples),
+          nullRate:
+            typeof c.nullRate === "number"
+              ? c.nullRate
+              : computeNullRate(samples, p.rowCount),
+          distinctCount:
+            typeof c.distinctCount === "number"
+              ? c.distinctCount
+              : new Set(
+                  samples
+                    .filter((v) => v != null && v !== "")
+                    .map((v) => String(v))
+                ).size,
+          unitCandidates:
+            Array.isArray(c.unitCandidates) && c.unitCandidates.length
+              ? c.unitCandidates
+              : detectUnits(c.name, samples),
+        };
+      });
+
       const sampleHash = createHash("sha1")
         .update(
           JSON.stringify({
             rc: p.rowCount,
-            cols: p.columns.map((c) => c.name),
+            cols: enhancedColumns.map((c) => c.name),
           })
         )
         .digest("hex");
+
       profile = await prisma.datasetProfile.create({
         data: {
           datasetFileId,
-          columns: p.columns as any,
+          columns: enhancedColumns as any,
           rowCount: p.rowCount,
           sampleHash,
         },

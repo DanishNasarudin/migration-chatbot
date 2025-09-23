@@ -2,6 +2,7 @@
 import prisma from "@/lib/prisma";
 import { SpecDoc } from "@/types/spec";
 import { parse } from "csv-parse/sync";
+import { revalidatePath } from "next/cache";
 import { zodFromSpec } from "../lib/validator";
 import { DatasetProfileResult } from "./profile";
 
@@ -249,4 +250,9 @@ export async function ensureValidOrExplain(opts: EnsureOpts) {
   }
 
   return { ok: true as const, runId: run.id };
+}
+
+export async function deleteValidationRun(runId: string) {
+  await prisma.validationRun.delete({ where: { id: runId } });
+  revalidatePath("/validation");
 }

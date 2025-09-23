@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
-import { profileDatasetFile } from "@/services/profile";
+import { computeNullRate, detectUnits, inferType } from "@/lib/profiler";
+import { ColumnProfile, profileDatasetFile } from "@/services/profile";
 import { getSpecByFileId, persistSpecDoc } from "@/services/spec";
 import { generateObject, tool } from "ai";
 import { createHash } from "crypto";
@@ -63,6 +64,7 @@ export const saveSpec = tool({
       .default("generic"),
     createdBy: z.string().min(1),
     primaryKeyHint: z.array(z.string()).optional(),
+    unitHints: z.record(z.string(), z.string()).optional(),
     onConflict: z.enum(["error", "bump"]).default("error"),
   }),
   execute: async ({
@@ -72,6 +74,7 @@ export const saveSpec = tool({
     domain,
     createdBy,
     primaryKeyHint,
+    unitHints,
     onConflict,
   }): Promise<ProposeAndSaveSpecResult> => {
     console.log("ai-tool: saveSpec called");
@@ -95,18 +98,45 @@ export const saveSpec = tool({
     });
     if (!profile) {
       const p = await profileDatasetFile(datasetFileId);
+      const enhancedColumns: ColumnProfile[] = p.columns.map((c: any) => {
+        const samples: unknown[] = Array.isArray(c.samples)
+          ? c.samples.slice(0, 200)
+          : [];
+        return {
+          name: c.name,
+          inferredType: c.inferredType ?? inferType(samples),
+          nullRate:
+            typeof c.nullRate === "number"
+              ? c.nullRate
+              : computeNullRate(samples, p.rowCount),
+          distinctCount:
+            typeof c.distinctCount === "number"
+              ? c.distinctCount
+              : new Set(
+                  samples
+                    .filter((v) => v != null && v !== "")
+                    .map((v) => String(v))
+                ).size,
+          unitCandidates:
+            Array.isArray(c.unitCandidates) && c.unitCandidates.length
+              ? c.unitCandidates
+              : detectUnits(c.name, samples),
+        };
+      });
+
       const sampleHash = createHash("sha1")
         .update(
           JSON.stringify({
             rc: p.rowCount,
-            cols: p.columns.map((c) => c.name),
+            cols: enhancedColumns.map((c) => c.name),
           })
         )
         .digest("hex");
+
       profile = await prisma.datasetProfile.create({
         data: {
           datasetFileId,
-          columns: p.columns as any,
+          columns: enhancedColumns as any,
           rowCount: p.rowCount,
           sampleHash,
         },
@@ -118,7 +148,9 @@ export const saveSpec = tool({
       model: myProvider.languageModel("qwen3:8b"),
       schema: SpecDocSchema,
       system:
-        "You are a precise data architect. Produce a minimal, correct SpecDoc for validation. Keep names and types strict; set nullable=false when data is consistently present. Only output valid JSON per schema.",
+        "You are a precise data architect. Produce a minimal, correct SpecDoc for validation. " +
+        "Respect primary keys if hinted. If unitCandidates exist, choose the most consistent unit; do not invent new units. " +
+        "Set nullable=false when data is consistently present.",
       prompt: JSON.stringify({
         meta: { name, version, domain, primaryKeyHint },
         profile: {
@@ -128,6 +160,22 @@ export const saveSpec = tool({
       }),
     });
     const draft = object as SpecDoc;
+
+    if (primaryKeyHint?.length) {
+      draft.fields = draft.fields.map((f) =>
+        primaryKeyHint.includes(f.name) ? { ...f, isPrimary: true } : f
+      );
+      draft.keys = draft.keys ?? {};
+      draft.keys.primary = Array.from(
+        new Set([...(draft.keys.primary ?? []), ...primaryKeyHint])
+      );
+    }
+    if (unitHints && Object.keys(unitHints).length) {
+      draft.fields = draft.fields.map((f) =>
+        unitHints[f.name] ? { ...f, unit: unitHints[f.name] } : f
+      );
+    }
+    draft.domain = draft.domain ?? domain;
 
     // 3) Persist as a NEW spec version (status=draft), return specId
     const specRow = await persistSpecDoc(draft, createdBy, onConflict);
