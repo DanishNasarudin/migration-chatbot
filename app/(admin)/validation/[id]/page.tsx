@@ -29,7 +29,9 @@ export default async function ValidationDetailPage({
     include: {
       datasetFile: { select: { filename: true } },
       spec: { select: { id: true, name: true, version: true } },
-      issues: true, // expects { severity, code, colName, rowIndex, value, expected, message }
+      issues: {
+        take: 50,
+      }, // expects { severity, code, colName, rowIndex, value, expected, message }
     },
   });
 

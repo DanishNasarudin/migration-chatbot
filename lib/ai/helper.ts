@@ -33,7 +33,7 @@ export interface FilePreview {
 }
 
 // --- Helpers for text-like content
-const MAX_CHARS = 10_000; // keep prompts small
+const MAX_CHARS = 4_000; // keep prompts small
 
 function clip(s: string) {
   return s.length > MAX_CHARS

@@ -34,7 +34,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "../ui/alert-dialog";
 
 type DatasetRow = {
@@ -94,52 +93,12 @@ export function DatasetsTable({ items }: { items: DatasetRow[] }) {
         </TableHeader>
         <TableBody>
           {items.map((f) => (
-            <TableRow key={f.id} className="align-top">
-              <TableCell className="font-medium">{f.filename}</TableCell>
-              <TableCell className="text-right tabular-nums">
-                {formatBytes(f.sizeBytes)}
-              </TableCell>
-              <TableCell title={new Date(f.createdAt).toLocaleString()}>
-                {formatDistanceToNow(new Date(f.createdAt), {
-                  addSuffix: true,
-                })}
-              </TableCell>
-              <TableCell className="text-right">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" aria-label="Actions">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuItem onClick={() => handleViewProfile(f.id)}>
-                      View profile
-                    </DropdownMenuItem>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <DropdownMenuItem className="text-red-600 focus:text-red-600">
-                          Delete
-                        </DropdownMenuItem>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete dataset?</AlertDialogTitle>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            className="bg-red-600 hover:bg-red-700"
-                            onClick={() => handleDelete(f.id)}
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
+            <DatasetsRow
+              key={f.id}
+              item={f}
+              onViewProfile={(id) => handleViewProfile(id)}
+              onDelete={(id) => handleDelete(id)}
+            />
           ))}
           {items.length === 0 && (
             <TableRow>
@@ -237,4 +196,81 @@ function formatBytes(n: number) {
 function fmtPct(p?: number) {
   if (p == null) return "—";
   return `${(p * 100).toFixed(1)}%`;
+}
+
+function DatasetsRow({
+  item: f,
+  onViewProfile,
+  onDelete,
+}: {
+  item: DatasetRow;
+  onViewProfile: (id: string) => void;
+  onDelete: (id: string) => Promise<void> | void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [openDelete, setOpenDelete] = useState(false);
+  const [isPending, start] = useTransition();
+
+  return (
+    <TableRow key={f.id} className="align-top">
+      <TableCell className="font-medium">{f.filename}</TableCell>
+      <TableCell className="text-right tabular-nums">
+        {formatBytes(f.sizeBytes)}
+      </TableCell>
+      <TableCell title={new Date(f.createdAt).toLocaleString()}>
+        {formatDistanceToNow(new Date(f.createdAt), {
+          addSuffix: true,
+        })}
+      </TableCell>
+      <TableCell className="text-right">
+        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="Actions">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem
+              onClick={() => {
+                onViewProfile(f.id);
+              }}
+            >
+              View profile
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-red-600 focus:text-red-600"
+              onClick={() => {
+                setMenuOpen(false);
+                setOpenDelete(true);
+              }}
+              disabled={isPending}
+            >
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+          <AlertDialog open={openDelete} onOpenChange={setOpenDelete}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete dataset?</AlertDialogTitle>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-red-600 hover:bg-red-700"
+                  onClick={() => {
+                    start(async () => {
+                      await onDelete(f.id);
+                      setOpenDelete(false);
+                    });
+                  }}
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
+  );
 }

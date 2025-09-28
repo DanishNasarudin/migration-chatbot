@@ -3,23 +3,102 @@
 import { Prisma } from "@/lib/generated/prisma";
 import prisma from "@/lib/prisma";
 
+type Scope = "chat" | "experiment" | "all";
+export type MetricOpts = {
+  scope?: Scope; // "chat" | "experiment" | "all"
+  from?: Date; // optional time window start
+  to?: Date; // optional time window end
+  tagPrefix?: string; // e.g. "exp/schema:" to segment an experiment family
+  modelIds?: string[]; // filter by models
+};
+
+function whereFor(opts?: MetricOpts) {
+  const where: any = {};
+  // Scope split based on how we tag experiment runs:
+  //   experiment runner writes ModelRun.chatId = "exp:<experimentId>"
+  if (opts?.scope === "experiment") {
+    where.chatId = { startsWith: "exp:" };
+  } else if (opts?.scope === "chat") {
+    // chat runs = chatId null OR not starting with "exp:"
+    where.OR = [{ chatId: null }, { chatId: { not: { startsWith: "exp:" } } }];
+  }
+  if (opts?.from || opts?.to) {
+    where.createdAt = {
+      ...(opts.from ? { gte: opts.from } : {}),
+      ...(opts.to ? { lt: opts.to } : {}),
+    };
+  }
+  if (opts?.tagPrefix) {
+    where.tag = { startsWith: opts.tagPrefix };
+  }
+  if (opts?.modelIds?.length) {
+    where.modelId = { in: opts.modelIds };
+  }
+  return where;
+}
+
+function scopeFilter(scope: Scope | undefined, alias = '"ModelRun"') {
+  if (scope === "experiment") {
+    // experiment runs: we tag chatId as 'exp:<id>'
+    return Prisma.sql` AND ${Prisma.raw(alias)}."chatId" LIKE 'exp:%'`;
+  }
+  if (scope === "chat") {
+    // chat = chatId is NULL or not exp-prefixed
+    return Prisma.sql` AND (${Prisma.raw(
+      alias
+    )}."chatId" IS NULL OR ${Prisma.raw(alias)}."chatId" NOT LIKE 'exp:%')`;
+  }
+  return Prisma.sql``; // 'all' → no-op
+}
+
 /** Common options */
 type WindowOpts = {
   windowDays?: number; // default 7
   tag?: string | null; // optional filter
+  tagPrefix?: string | null; // NEW — LIKE 'prefix%'
+  tagLike?: string | null; // NEW — full LIKE pattern with % wildcards
   modelId?: string | null; // optional filter
   byTag?: boolean; // group by modelId + tag if true
   byModel?: boolean; // default true (group by model)
+  scope?: Scope;
+  experimentId?: string;
 };
 const def = <T>(v: T | undefined, d: T) => (v === undefined ? d : v);
 
 /** Shared WHERE clause builder (keeps everything as Prisma.Sql) */
-function whereClause({ windowDays = 7, tag, modelId }: WindowOpts) {
+function whereClause(
+  {
+    windowDays = 7,
+    tag,
+    tagPrefix,
+    tagLike,
+    modelId,
+    scope,
+    experimentId,
+  }: WindowOpts,
+  alias = '"ModelRun"'
+) {
   const parts: Prisma.Sql[] = [
     Prisma.sql`"createdAt" >= NOW() - (${windowDays}::int * INTERVAL '1 day')`,
   ];
   if (tag) parts.push(Prisma.sql`"tag" = ${tag}`);
+  if (tagPrefix) parts.push(Prisma.sql`"tag" LIKE ${tagPrefix + "%"}`);
+  if (tagLike) parts.push(Prisma.sql`"tag" LIKE ${tagLike}`);
   if (modelId) parts.push(Prisma.sql`"modelId" = ${modelId}`);
+
+  if (experimentId) {
+    parts.push(
+      Prisma.sql`${Prisma.raw(alias)}."chatId" = ${`exp:${experimentId}`}`
+    );
+  } else if (scope === "experiment") {
+    parts.push(Prisma.sql`${Prisma.raw(alias)}."chatId" LIKE 'exp:%'`);
+  } else if (scope === "chat") {
+    parts.push(
+      Prisma.sql`(${Prisma.raw(alias)}."chatId" IS NULL OR ${Prisma.raw(
+        alias
+      )}."chatId" NOT LIKE 'exp:%')`
+    );
+  }
   return Prisma.sql`WHERE 1=1 AND ${Prisma.join(parts, ` AND `)}`;
 }
 
@@ -138,7 +217,8 @@ export async function getTtftStatsRaw(opts: WindowOpts = {}) {
     ${cols.group}
     ORDER BY "p95TtftMs";
   `;
-  return prisma.$queryRaw<TtftStatsRow[]>(q);
+  const result = prisma.$queryRaw<TtftStatsRow[]>(q);
+  return result;
 }
 
 /* ========================= 4) Throughput (tokens/sec) ========================= */

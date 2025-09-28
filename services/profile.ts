@@ -21,6 +21,7 @@ export type ColumnProfile = {
 export type DatasetProfileResult = {
   rowCount: number;
   columns: ColumnProfile[];
+  error?: string;
 };
 
 export async function profileDatasetFile(
@@ -29,31 +30,50 @@ export async function profileDatasetFile(
   const file = await prisma.datasetFile.findUniqueOrThrow({
     where: { id: datasetFileId },
   });
-  const text = Buffer.from(file.data).toString("utf8");
-  const rows: string[][] = parse(text, { skip_empty_lines: true });
-  const header = rows[0];
-  const body = rows.slice(1);
 
-  const cols: ColumnProfile[] = header.map((name, colIdx) => {
-    const values = body.map((r) => r[colIdx] ?? "");
-    const nonNull = values.filter((v) => v !== "");
-    const distinct = new Set(nonNull).size;
+  try {
+    const text = Buffer.from(file.data).toString("utf8");
+    const rows: string[][] = parse(text, {
+      skip_empty_lines: true,
+      delimiter: [",", ";"],
+    });
+    const header = rows[0];
+    const body = rows.slice(1);
 
-    const inferredType = inferType(nonNull);
-    const unitCandidates = guessUnits(nonNull);
+    const cols: ColumnProfile[] = header.map((name, colIdx) => {
+      const values = body.map((r) => r[colIdx] ?? "");
+      const nonNull = values.filter((v) => v !== "");
+      const distinct = new Set(nonNull).size;
 
-    return {
-      name,
-      inferredType,
-      nullRate: values.length
-        ? (values.length - nonNull.length) / values.length
-        : 1,
-      distinctCount: distinct,
-      unitCandidates: unitCandidates.length ? unitCandidates : undefined,
-    };
-  });
+      const inferredType = inferType(nonNull);
+      const unitCandidates = guessUnits(nonNull);
 
-  return { rowCount: body.length, columns: cols };
+      return {
+        name,
+        inferredType,
+        nullRate: values.length
+          ? (values.length - nonNull.length) / values.length
+          : 1,
+        distinctCount: distinct,
+        unitCandidates: unitCandidates.length ? unitCandidates : undefined,
+      };
+    });
+
+    return { rowCount: body.length, columns: cols };
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes("Closing Quote")) {
+        return {
+          rowCount: -1,
+          columns: [],
+          error: "Profile dataset fail: Parser delimter out of scope.",
+        };
+      }
+      return { rowCount: -1, columns: [], error: error.message };
+    } else {
+      return { rowCount: -1, columns: [], error: "Unknown Error" };
+    }
+  }
 }
 
 function inferType(samples: unknown[]): ColumnProfile["inferredType"] {

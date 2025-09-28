@@ -183,7 +183,8 @@ model ValidationRun {
   datasetFileId String
   specId        String
   modelId       String? // optional if run via chat
-  promptMode    String? // baseline|fewshot|schema_guided
+  experimentId  String?
+  promptMode    String? // baseline|few_shot|schema_guided
   unitTool      Boolean  @default(false)
   driftCase     String? // header_noise|unit_change|type_shift|missing_field|multi_table
   passed        Boolean
@@ -234,10 +235,18 @@ model Experiment {
   @@index([specId])
 }
 
-enum ExperimentStatus {
-  queue
-  running
-  completed
+model ExperimentRun {
+  id              String    @id @default(cuid())
+  experimentId    String
+  status          String // "RUNNING" | "DONE" | "CANCELLED" | "FAILED"
+  total           Int
+  baseline        Int
+  done            Int       @default(0)
+  cancelRequested Boolean   @default(false)
+  error           String?
+  startedAt       DateTime  @default(now())
+  finishedAt      DateTime?
+  updatedAt       DateTime  @updatedAt
 }
 
 model Trial {
@@ -252,7 +261,7 @@ model Trial {
   createdAt       DateTime @default(now())
 
   experiment    Experiment     @relation(fields: [experimentId], references: [id], onDelete: Cascade)
-  validationRun ValidationRun? @relation(fields: [validationRunId], references: [id])
+  validationRun ValidationRun? @relation(fields: [validationRunId], references: [id], onDelete: Cascade)
 
   @@index([experimentId])
   @@index([validationRunId])

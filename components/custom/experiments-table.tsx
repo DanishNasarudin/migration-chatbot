@@ -12,7 +12,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -26,6 +25,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -49,12 +49,16 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  beginExperimentRun,
   createExperiment,
   deleteExperiment,
   runExistingExperiment,
 } from "@/services/experiment";
 import { MoreHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+
+const LS_KEY = "activeExperimentRuns";
 
 type Choices = Awaited<
   ReturnType<typeof import("@/services/experiment").listChoices>
@@ -74,7 +78,6 @@ export function ExperimentsTable({
   const [openNew, setOpenNew] = useState(false);
   const [openRun, setOpenRun] = useState<string | null>(null);
   const [isPending, start] = useTransition();
-  const [toast, setToast] = useState<string | null>(null);
 
   // New experiment form state
   const [name, setName] = useState("");
@@ -97,6 +100,8 @@ export function ExperimentsTable({
   const [runConcurrency, setRunConcurrency] = useState<number>(2);
   const [runDry, setRunDry] = useState<boolean>(false);
 
+  const [task, setTask] = useState<"llm" | "validation">("llm");
+
   const toggleFromList = <T,>(list: T[], v: T) =>
     list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
 
@@ -113,20 +118,56 @@ export function ExperimentsTable({
       setOpenNew(false);
       setName("");
       setDescription("");
-      setToast(`Experiment created: ${res.id}`);
+      toast(`Experiment created: ${res.id}`);
     });
   };
 
   const runExp = (id: string) => {
     start(async () => {
-      const res = await runExistingExperiment(id, {
-        concurrency: runConcurrency,
-        dryRun: runDry,
-      });
-      setOpenRun(null);
-      setToast(
-        `Run complete — combos: ${res.combinations}, trials: ${res.trialsCreated}, validations: ${res.validationRunsCreated}, errors: ${res.errors.length}`
-      );
+      if (runDry) {
+        const toastId = toast.loading("Dry run in progress…");
+        try {
+          const res = await runExistingExperiment(id, {
+            concurrency: runConcurrency,
+            dryRun: true,
+          });
+          toast.success(
+            `Dry run complete — combos: ${res.combinations}, errors: ${res.errors.length}`,
+            { id: toastId }
+          );
+        } catch (e: any) {
+          toast.error(`Run failed: ${e?.message ?? String(e)}`, {
+            id: toastId,
+          });
+        } finally {
+          setOpenRun(null);
+        }
+        return;
+      }
+
+      // --- NORMAL RUN: start job server-side; do not await the whole run
+      try {
+        const { runId } = await beginExperimentRun(id, {
+          concurrency: runConcurrency,
+          dryRun: false,
+        });
+
+        // hand off to the sentinel by recording the run in localStorage
+        try {
+          const ls = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+          ls[runId] = { experimentId: id };
+          localStorage.setItem(LS_KEY, JSON.stringify(ls));
+        } catch {
+          // ignore LS errors
+        }
+
+        // optional: quick acknowledgement; the sentinel will take over the live toast
+        toast.success("Experiment started");
+      } catch (e: any) {
+        toast.error(`Failed to start run: ${e?.message ?? String(e)}`);
+      } finally {
+        setOpenRun(null);
+      }
     });
   };
 
@@ -156,61 +197,15 @@ export function ExperimentsTable({
         </TableHeader>
         <TableBody>
           {items.map((e) => (
-            <TableRow key={e.id}>
-              <TableCell className="font-medium">{e.name}</TableCell>
-              <TableCell>{e.datasetLabel}</TableCell>
-              <TableCell>{e.specLabel}</TableCell>
-              <TableCell title={new Date(e.createdAt).toLocaleString()}>
-                {formatDistanceToNow(new Date(e.createdAt), {
-                  addSuffix: true,
-                })}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                {e.trialsCount}
-              </TableCell>
-              <TableCell className="text-right">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" aria-label="Actions">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-44">
-                    <DropdownMenuItem
-                      onClick={() => router.push(`/experiments/${e.id}`)}
-                    >
-                      View details
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setOpenRun(e.id)}>
-                      Run…
-                    </DropdownMenuItem>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <DropdownMenuItem className="text-red-600 focus:text-red-600">
-                          Delete
-                        </DropdownMenuItem>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>
-                            Delete experiment?
-                          </AlertDialogTitle>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            className="bg-red-600 hover:bg-red-700"
-                            onClick={() => deleteExp(e.id)}
-                          >
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
+            <ExperimentRow
+              key={e.id}
+              e={e}
+              onSelectRun={() => setOpenRun(e.id)}
+              onDeleted={async () => {
+                await deleteExperiment(e.id);
+                toast("Deleted");
+              }}
+            />
           ))}
           {items.length === 0 && (
             <TableRow>
@@ -351,6 +346,26 @@ export function ExperimentsTable({
                 </div>
               </div>
 
+              {/* Task selector */}
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Task</label>
+                <Select
+                  value={task}
+                  onValueChange={(v: "llm" | "validation") => {
+                    setTask(v);
+                    if (v === "validation") setPromptModes(["validation_only"]);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a task" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="llm">LLM schema extraction</SelectItem>
+                    <SelectItem value="validation">Validation only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div>
                 <div className="font-medium mb-2">Drift cases</div>
                 <div className="grid grid-cols-1 gap-2">
@@ -439,15 +454,92 @@ export function ExperimentsTable({
           </div>
         </DialogContent>
       </Dialog>
-
-      {toast && (
-        <div
-          className="fixed bottom-4 right-4 rounded-md bg-foreground text-background px-3 py-2 text-sm shadow"
-          onAnimationEnd={() => setTimeout(() => setToast(null), 2500)}
-        >
-          {toast}
-        </div>
-      )}
     </>
+  );
+}
+
+function ExperimentRow({
+  e,
+  onSelectRun,
+  onDeleted,
+}: {
+  e: Item;
+  onSelectRun: () => void;
+  onDeleted: () => Promise<void> | void;
+}) {
+  const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [openDelete, setOpenDelete] = useState(false);
+  const [isPending, start] = useTransition();
+
+  return (
+    <TableRow>
+      <TableCell className="font-medium">{e.name}</TableCell>
+      <TableCell>{e.datasetLabel}</TableCell>
+      <TableCell>{e.specLabel}</TableCell>
+      <TableCell title={new Date(e.createdAt).toLocaleString()}>
+        {formatDistanceToNow(new Date(e.createdAt), { addSuffix: true })}
+      </TableCell>
+      <TableCell className="text-right tabular-nums">{e.trialsCount}</TableCell>
+
+      <TableCell className="text-right">
+        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="Actions">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={() => router.push(`/experiments/${e.id}`)}
+              >
+                View details
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => onSelectRun()}>
+                Run…
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                className="text-red-600 focus:text-red-600"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setOpenDelete(true);
+                }}
+                disabled={isPending}
+              >
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Keep the AlertDialog *outside* the menu */}
+        <AlertDialog open={openDelete} onOpenChange={setOpenDelete}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete experiment?</AlertDialogTitle>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-red-600 hover:bg-red-700"
+                disabled={isPending}
+                onClick={() => {
+                  start(async () => {
+                    await onDeleted();
+                    setOpenDelete(false);
+                    router.refresh();
+                  });
+                }}
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </TableCell>
+    </TableRow>
   );
 }

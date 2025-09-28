@@ -80,7 +80,17 @@ export const saveSpec = tool({
     unitHints,
     onConflict,
   }): Promise<ProposeAndSaveSpecResult> => {
-    console.log("ai-tool: saveSpec called");
+    console.log(
+      "ai-tool: saveSpec called: ",
+      name,
+      version,
+      domain,
+      createdBy,
+      primaryKeyHint,
+      unitHints,
+      onConflict,
+      datasetFileId
+    );
 
     // TODO: Need to create structureHash from profile, see if any difference, only then create new spec.
     const existing = await getSpecByFileId({ name, version });
@@ -126,6 +136,8 @@ export const saveSpec = tool({
               : detectUnits(c.name, samples),
         };
       });
+
+      console.log(profile, enhancedColumns);
 
       const sampleHash = createHash("sha1")
         .update(

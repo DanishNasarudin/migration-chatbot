@@ -12,10 +12,10 @@ export function zodFromSpec(spec: SpecDoc, opts: ValidationOptions = {}) {
 
     switch (f.type) {
       case "number":
-        t = z.preprocess(
-          (v) => coerceNumberWithSeparators(v, opts),
-          z.number().finite()
-        );
+        const base = z.number().finite();
+        const withNull = f.nullable ? base.nullable() : base;
+
+        t = z.preprocess((v) => coerceNumberWithSeparators(v, opts), withNull);
         break;
 
       case "boolean":
@@ -56,7 +56,7 @@ export function zodFromSpec(spec: SpecDoc, opts: ValidationOptions = {}) {
     }
 
     // Nullability/optional (keeps your original behavior)
-    if (f.nullable !== false) t = t.nullable().optional();
+    if (f.nullable) t = t.nullish();
 
     shape[f.name] = t;
   }
@@ -107,7 +107,7 @@ function coerceNumberWithSeparators(v: unknown, opts: ValidationOptions) {
       // allow spaces or underscores as accidental groupers
       const compact = candidate.replace(/[ _]/g, "");
       if (noSepPattern.test(compact)) candidate = compact;
-      else return v; // not a valid numeric string; let Zod raise an error
+      else return null; // not a valid numeric string; let Zod raise an error
     }
 
     const n = Number(candidate);

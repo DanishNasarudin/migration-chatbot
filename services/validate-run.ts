@@ -49,6 +49,7 @@ export async function runValidation(
   const text = Buffer.from(file.data).toString("utf8");
   const [header, ...rows] = parse(text, {
     skip_empty_lines: true,
+    delimiter: [",", ";"],
   }) as string[][];
   const zodSchema = zodFromSpec(spec, opts);
 

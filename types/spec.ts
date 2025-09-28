@@ -1,6 +1,6 @@
 export type FieldSpec = {
   name: string;
-  type: "string" | "number" | "boolean" | "date";
+  type: "string" | "number" | "boolean" | "date" | "datetime";
   nullable?: boolean;
   unit?: string;
   enumVals?: string[];

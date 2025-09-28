@@ -94,76 +94,88 @@ export async function POST(req: Request) {
     );
   }
 
-  const arrayBuffer = await file.arrayBuffer(); // Web standard
-  const buf = Buffer.from(arrayBuffer); // Prisma Bytes expects Node Buffer
+  try {
+    const arrayBuffer = await file.arrayBuffer(); // Web standard
+    const buf = Buffer.from(arrayBuffer); // Prisma Bytes expects Node Buffer
 
-  const sha256 = createHash("sha256").update(buf).digest("hex");
-  const ext = getExtension(file.name);
+    const sha256 = createHash("sha256").update(buf).digest("hex");
+    const ext = getExtension(file.name);
 
-  // Optional: deduplicate by checksum
-  const existing = await prisma.datasetFile.findFirst({
-    where: { checksumSha256: sha256, sizeBytes: file.size },
-    select: { id: true },
-  });
-  if (existing) {
-    return NextResponse.json(
-      {
-        url: `${process.env.HOSTNAME}/api/files/${existing.id}`,
-        deduped: true,
-        pathname: file.name,
-        contentType: file.type,
-        id: existing.id,
-      },
-      { status: 200 }
-    );
-  }
+    // Optional: deduplicate by checksum
+    const existing = await prisma.datasetFile.findFirst({
+      where: { checksumSha256: sha256, sizeBytes: file.size },
+      select: { id: true },
+    });
+    if (existing) {
+      return NextResponse.json(
+        {
+          url: `${process.env.HOSTNAME}/api/files/${existing.id}`,
+          deduped: true,
+          pathname: file.name,
+          contentType: file.type,
+          id: existing.id,
+        },
+        { status: 200 }
+      );
+    }
 
-  const created = await createFile({
-    fileName: file.name,
-    extension: ext,
-    fileType: file.type,
-    sizeBytes: file.size,
-    checksumSha256: sha256,
-    data: buf,
-  });
+    const created = await createFile({
+      fileName: file.name,
+      extension: ext,
+      fileType: file.type,
+      sizeBytes: file.size,
+      checksumSha256: sha256,
+      data: buf,
+    });
 
-  const prof = await profileDatasetFile(created.id);
-  const sampleHash = createHash("sha1")
-    .update(
-      JSON.stringify({
-        rc: prof.rowCount,
-        cols: prof.columns.map((c) => c.name),
-      })
-    )
-    .digest("hex");
+    const prof = await profileDatasetFile(created.id);
+    if (prof.error) {
+      throw new Error("Profile data fail: Parser delimiter out of scope.");
+    }
+    const sampleHash = createHash("sha1")
+      .update(
+        JSON.stringify({
+          rc: prof.rowCount,
+          cols: prof.columns.map((c) => c.name),
+        })
+      )
+      .digest("hex");
 
-  const existingProfile = await prisma.datasetProfile.findFirst({
-    where: {
-      sampleHash,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (!existingProfile) {
-    await prisma.datasetProfile.create({
-      data: {
-        datasetFileId: created.id,
-        columns: prof.columns as any,
-        rowCount: prof.rowCount,
+    const existingProfile = await prisma.datasetProfile.findFirst({
+      where: {
         sampleHash,
       },
+      select: {
+        id: true,
+      },
     });
-  }
 
-  return NextResponse.json(
-    {
-      url: `${process.env.HOSTNAME}/api/files/${created.id}`,
-      pathname: created.filename,
-      contentType: file.type,
-      id: created.id,
-    },
-    { status: 201 }
-  );
+    if (!existingProfile) {
+      await prisma.datasetProfile.create({
+        data: {
+          datasetFileId: created.id,
+          columns: prof.columns as any,
+          rowCount: prof.rowCount,
+          sampleHash,
+        },
+      });
+    }
+
+    return NextResponse.json(
+      {
+        url: `${process.env.HOSTNAME}/api/files/${created.id}`,
+        pathname: created.filename,
+        contentType: file.type,
+        id: created.id,
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error,
+      },
+      { status: 415 }
+    );
+  }
 }

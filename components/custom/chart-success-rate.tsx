@@ -32,7 +32,11 @@ export default function ChartSuccessRate({
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="w-full">
-          <BarChart accessibilityLayer data={chartData}>
+          <BarChart
+            accessibilityLayer
+            data={chartData}
+            margin={{ top: 28, right: 8, bottom: 8, left: 8 }}
+          >
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey="modelId"

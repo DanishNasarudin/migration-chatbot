@@ -1,3 +1,4 @@
+import { ExperimentRunToasts } from "@/components/custom/run-experiment-toasts";
 import SidebarButton from "@/components/custom/sidebar-button";
 import React from "react";
 
@@ -36,6 +37,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <SidebarButton key={idx} id={l.href} name={l.title} />
         ))}
       </nav>
+      <ExperimentRunToasts />
       {children}
     </div>
   );

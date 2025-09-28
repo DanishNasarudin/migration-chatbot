@@ -1,6 +1,13 @@
 "use client";
 import { LatencyStatsRow } from "@/services/metrics";
-import { Bar, BarChart, CartesianGrid, LabelList, XAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  LabelList,
+  XAxis,
+  YAxis,
+} from "recharts";
 import {
   Card,
   CardContent,
@@ -20,6 +27,14 @@ const chartConfig = {
     label: "Avg Latency",
     color: "#2563eb",
   },
+  p95LatencyMs: {
+    label: "p95 Latency",
+    color: "#2563eb",
+  },
+  p50LatencyMs: {
+    label: "p50 Latency",
+    color: "#2563eb",
+  },
 } satisfies ChartConfig;
 
 type ChartData = LatencyStatsRow;
@@ -37,7 +52,11 @@ export default function ChartLatencyStats({
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="w-full">
-          <BarChart accessibilityLayer data={chartData}>
+          <BarChart
+            accessibilityLayer
+            data={chartData}
+            margin={{ top: 28, right: 8, bottom: 8, left: 8 }}
+          >
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey="modelId"
@@ -45,6 +64,7 @@ export default function ChartLatencyStats({
               tickMargin={10}
               axisLine={false}
             />
+            <YAxis dataKey="avgLatencyMs" domain={[0, 1.05]} />
             <ChartTooltip
               content={
                 <ChartTooltipContent
@@ -65,6 +85,30 @@ export default function ChartLatencyStats({
             />
             <Bar
               dataKey={"avgLatencyMs"}
+              fill="var(--color-primary)"
+              radius={4}
+            >
+              <LabelList
+                position="top"
+                offset={12}
+                className="fill-foreground"
+                fontSize={12}
+              />
+            </Bar>
+            <Bar
+              dataKey={"p95LatencyMs"}
+              fill="var(--color-primary)"
+              radius={4}
+            >
+              <LabelList
+                position="top"
+                offset={12}
+                className="fill-foreground"
+                fontSize={12}
+              />
+            </Bar>
+            <Bar
+              dataKey={"p50LatencyMs"}
               fill="var(--color-primary)"
               radius={4}
             >

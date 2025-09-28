@@ -26,10 +26,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { runAgain } from "@/services/experiment";
-import { formatDistanceToNow } from "date-fns";
+import { deleteRuns, runAgain } from "@/services/experiment";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
+import { toast } from "sonner";
 
 type TrialRow =
   import("@/services/experiment").ExperimentDetail["trials"][number];
@@ -45,6 +45,7 @@ export function TrialsTable({
   const [model, setModel] = useState<string>("all");
   const [prompt, setPrompt] = useState<string>("all");
   const [drift, setDrift] = useState<string>("all");
+  const [unit, setUnit] = useState<string>("all");
   const [passFilter, setPassFilter] = useState<"all" | "passed" | "failed">(
     "all"
   );
@@ -53,7 +54,6 @@ export function TrialsTable({
   const [concurrency, setConcurrency] = useState(2);
   const [dryRun, setDryRun] = useState(false);
   const [isPending, start] = useTransition();
-  const [toast, setToast] = useState<string | null>(null);
 
   const models = useMemo(
     () => Array.from(new Set(trials.map((t) => t.modelId))).sort(),
@@ -65,6 +65,13 @@ export function TrialsTable({
   );
   const drifts = useMemo(
     () => Array.from(new Set(trials.map((t) => t.driftCase ?? "none"))).sort(),
+    [trials]
+  );
+  const units = useMemo(
+    () =>
+      Array.from(
+        new Set(trials.map((t) => String(t.unitTool) ?? "none"))
+      ).sort(),
     [trials]
   );
 
@@ -79,19 +86,26 @@ export function TrialsTable({
       if (model !== "all" && t.modelId !== model) return false;
       if (prompt !== "all" && (t.promptMode ?? "none") !== prompt) return false;
       if (drift !== "all" && (t.driftCase ?? "none") !== drift) return false;
+      if (unit !== "all" && (String(t.unitTool) ?? "none") !== unit)
+        return false;
       if (passFilter === "passed" && !t.passed) return false;
       if (passFilter === "failed" && t.passed) return false;
       return true;
     });
-  }, [trials, q, model, prompt, drift, passFilter]);
+  }, [trials, q, model, prompt, drift, unit, passFilter]);
 
   const runNow = () => {
     start(async () => {
       const res = await runAgain(experimentId, { concurrency, dryRun });
       setOpenRun(false);
-      setToast(
-        `Run complete — combos: ${res.combinations}, trials: ${res.trialsCreated}, validations: ${res.validationRunsCreated}, errors: ${res.errors.length}`
-      );
+    });
+  };
+
+  const deleteExpRuns = () => {
+    start(async () => {
+      const res = await deleteRuns(experimentId).then(() => {
+        toast("Deleted runs");
+      });
     });
   };
 
@@ -156,6 +170,22 @@ export function TrialsTable({
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-1">
+            <Label>Unit</Label>
+            <Select value={unit} onValueChange={setUnit}>
+              <SelectTrigger>
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {units.map((d) => (
+                  <SelectItem key={d} value={d}>
+                    {d}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="flex items-end gap-2">
@@ -172,23 +202,36 @@ export function TrialsTable({
               <SelectItem value="failed">Failed</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={() => setOpenRun(true)}>Run again…</Button>
+          <Button
+            variant={"outline"}
+            className="text-destructive"
+            onClick={() => deleteExpRuns()}
+            disabled={isPending || filtered.length === 0}
+          >
+            Delete Runs
+          </Button>
+          {/* <Button onClick={() => setOpenRun(true)} disabled={isPending}>
+            Run again…
+          </Button> */}
         </div>
       </div>
 
-      <div className="rounded-lg border mt-4">
-        <Table>
-          <TableHeader>
+      <div className="rounded-lg border mt-4 max-h-[600px] overflow-hidden overflow-y-auto relative">
+        <Table noWrapper>
+          <TableHeader className="sticky top-0 z-10 bg-background border-b-[1px] border-border">
             <TableRow>
               <TableHead>Model</TableHead>
               <TableHead>Prompt</TableHead>
               <TableHead className="w-24">Unit</TableHead>
               <TableHead>Drift</TableHead>
               <TableHead className="w-20">Passed</TableHead>
+              <TableHead className="w-24">P</TableHead>
+              <TableHead className="w-24">R</TableHead>
               <TableHead className="w-24">F1</TableHead>
-              <TableHead className="w-28">Valid/Total</TableHead>
+              <TableHead className="w-24">Type Acc</TableHead>
+              <TableHead className="w-28">Valid Rows %</TableHead>
               <TableHead className="w-20">Issues</TableHead>
-              <TableHead className="w-44">Created</TableHead>
+              {/* <TableHead className="w-44">Created</TableHead> */}
               <TableHead className="w-28">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -207,19 +250,31 @@ export function TrialsTable({
                   )}
                 </TableCell>
                 <TableCell className="tabular-nums">
+                  {t.precision?.toFixed(3) ?? "—"}
+                </TableCell>
+                <TableCell className="tabular-nums">
+                  {t.recall?.toFixed(3) ?? "—"}
+                </TableCell>
+                <TableCell className="tabular-nums">
                   {t.f1?.toFixed(3) ?? "—"}
                 </TableCell>
                 <TableCell className="tabular-nums">
-                  {t.validRows != null && t.totalRows != null
+                  {t.typeAcc?.toFixed(3) ?? "—"}
+                </TableCell>
+                <TableCell className="tabular-nums">
+                  {/* {t.validRows != null && t.totalRows != null
                     ? `${t.validRows}/${t.totalRows}`
+                    : "—"} */}
+                  {t.validRowsPct
+                    ? `${(100 * t.validRowsPct!).toFixed(1)}%`
                     : "—"}
                 </TableCell>
                 <TableCell className="tabular-nums">{t.issuesCount}</TableCell>
-                <TableCell title={new Date(t.createdAt).toLocaleString()}>
+                {/* <TableCell title={new Date(t.createdAt).toLocaleString()}>
                   {formatDistanceToNow(new Date(t.createdAt), {
                     addSuffix: true,
                   })}
-                </TableCell>
+                </TableCell> */}
                 <TableCell>
                   <Link
                     href={`/validation/${t.validationRunId}`}
@@ -287,15 +342,6 @@ export function TrialsTable({
           </div>
         </DialogContent>
       </Dialog>
-
-      {toast && (
-        <div
-          className="fixed bottom-4 right-4 rounded-md bg-foreground text-background px-3 py-2 text-sm shadow"
-          onAnimationEnd={() => setTimeout(() => setToast(null), 2500)}
-        >
-          {toast}
-        </div>
-      )}
     </>
   );
 }

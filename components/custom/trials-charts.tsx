@@ -7,6 +7,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  LabelList,
   Legend,
   Line,
   LineChart,
@@ -83,18 +84,29 @@ export function TrialsCharts({ trials }: { trials: TrialRow[] }) {
           </CardHeader>
           <CardContent className="h-64">
             <ResponsiveContainer width={"100%"} height={"100%"}>
-              <BarChart data={byModelF1}>
+              <BarChart
+                data={byModelF1}
+                margin={{ top: 28, right: 8, bottom: 8, left: 8 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="model" hide={false} />
                 <YAxis
-                  domain={[0, 1]}
+                  domain={[0, 1.05]}
                   tickFormatter={(v) => `${(v * 100).toFixed(0)}%`}
                 />
                 <Tooltip
                   formatter={(v: number) => `${(v * 100).toFixed(2)}%`}
                 />
                 <Legend />
-                <Bar dataKey="avgF1" name="Avg F1" fill="#2563eb" />
+                <Bar dataKey="avgF1" name="Avg F1" fill="#2563eb">
+                  <LabelList
+                    position="top"
+                    offset={12}
+                    className="fill-foreground"
+                    fontSize={12}
+                    formatter={(v: number) => `${(v * 100).toFixed(0)}%`}
+                  />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -106,18 +118,29 @@ export function TrialsCharts({ trials }: { trials: TrialRow[] }) {
           </CardHeader>
           <CardContent className="h-64">
             <ResponsiveContainer width={"100%"} height={"100%"}>
-              <BarChart data={byModelPass}>
+              <BarChart
+                data={byModelPass}
+                margin={{ top: 28, right: 8, bottom: 8, left: 8 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="model" />
                 <YAxis
-                  domain={[0, 1]}
+                  domain={[0, 1.05]}
                   tickFormatter={(v) => `${(v * 100).toFixed(0)}%`}
                 />
                 <Tooltip
                   formatter={(v: number) => `${(v * 100).toFixed(2)}%`}
                 />
                 <Legend />
-                <Bar dataKey="passRate" name="Pass rate" fill="#2563eb" />
+                <Bar dataKey="passRate" name="Pass rate" fill="#2563eb">
+                  <LabelList
+                    position="top"
+                    offset={12}
+                    className="fill-foreground"
+                    fontSize={12}
+                    formatter={(v: number) => `${(v * 100).toFixed(0)}%`}
+                  />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -133,18 +156,29 @@ export function TrialsCharts({ trials }: { trials: TrialRow[] }) {
           </CardHeader>
           <CardContent className="h-64">
             <ResponsiveContainer width={"100%"} height={"100%"}>
-              <BarChart data={byDriftPass}>
+              <BarChart
+                data={byDriftPass}
+                margin={{ top: 28, right: 8, bottom: 8, left: 8 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="drift" />
                 <YAxis
-                  domain={[0, 1]}
+                  domain={[0, 1.05]}
                   tickFormatter={(v) => `${(v * 100).toFixed(0)}%`}
                 />
                 <Tooltip
                   formatter={(v: number) => `${(v * 100).toFixed(2)}%`}
                 />
                 <Legend />
-                <Bar dataKey="passRate" name="Pass rate" fill="#2563eb" />
+                <Bar dataKey="passRate" name="Pass rate" fill="#2563eb">
+                  <LabelList
+                    position="top"
+                    offset={12}
+                    className="fill-foreground"
+                    fontSize={12}
+                    formatter={(v: number) => `${(v * 100).toFixed(0)}%`}
+                  />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

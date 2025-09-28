@@ -45,7 +45,11 @@ export default function ChartThroughputStats({
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="w-full">
-          <BarChart accessibilityLayer data={chartData}>
+          <BarChart
+            accessibilityLayer
+            data={chartData}
+            margin={{ top: 28, right: 8, bottom: 8, left: 8 }}
+          >
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey="modelId"
@@ -53,6 +57,8 @@ export default function ChartThroughputStats({
               tickMargin={10}
               axisLine={false}
             />
+            {/* <YAxis dataKey="e2eTokPerSecAvg" domain={[0, 1.05]} /> */}
+            {/* <YAxis dataKey="expansionRatioAvg" domain={[0, 1.05]} /> */}
             <ChartTooltip
               content={
                 <ChartTooltipContent
@@ -71,7 +77,7 @@ export default function ChartThroughputStats({
                 />
               }
             />
-            <Bar dataKey={"runsWithOut"} fill="var(--color-primary)" radius={4}>
+            {/* <Bar dataKey={"runsWithOut"} fill="var(--color-primary)" radius={4}>
               <LabelList
                 position="top"
                 offset={12}
@@ -79,10 +85,10 @@ export default function ChartThroughputStats({
                 fontSize={12}
                 formatter={(v: string) => Number(v).toFixed(2)}
               />
-            </Bar>
+            </Bar> */}
             <Bar
               dataKey={"e2eTokPerSecAvg"}
-              fill="var(--color-primary-foreground)"
+              fill="var(--color-primary)"
               radius={4}
             >
               <LabelList

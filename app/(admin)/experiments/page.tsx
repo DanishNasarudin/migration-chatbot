@@ -10,6 +10,7 @@ export default async function ExperimentsPage() {
     <div className="p-6 space-y-4">
       <h1 className="text-2xl font-semibold">Experiments</h1>
       <ExperimentsTable items={items} choices={choices} />
+      <section className="h-[200px]"></section>
     </div>
   );
 }

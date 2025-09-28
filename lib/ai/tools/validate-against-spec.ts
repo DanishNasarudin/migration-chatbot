@@ -145,7 +145,11 @@ export const validateAgainstSpec = tool({
         metrics: result.metrics as any,
         issues: { create: result.issues },
       },
-      include: { issues: true },
+      include: {
+        issues: {
+          take: 20,
+        },
+      },
     });
 
     console.log(toValidateResult(run), "VALIDATE ???");
